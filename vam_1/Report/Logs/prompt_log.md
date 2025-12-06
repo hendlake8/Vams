@@ -109,3 +109,7 @@ Release/{yyyy-MM-dd}/Vam_{MM-dd-hh-mm}.apk 경로로 Release 빌드 되도록 �
 ### 2025-12-06 12:54:44
 /sc:implement Release 폴더 이그노어 추가
 
+---
+### 2025-12-06 12:55:57
+/sc:implement 다음 단계 구현
+

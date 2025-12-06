@@ -11,6 +11,7 @@ import 'systems/combat_system.dart';
 import 'systems/spawn_system.dart';
 import 'systems/wave_system.dart';
 import 'systems/level_system.dart';
+import 'systems/weapon_system.dart';
 import 'input/joystick_controller.dart';
 
 /// 메인 게임 클래스
@@ -25,6 +26,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   late SpawnSystem spawnSystem;
   late WaveSystem waveSystem;
   late LevelSystem levelSystem;
+  late WeaponSystem weaponSystem;
 
   // 게임 상태
   double mElapsedTime = 0;
@@ -56,6 +58,10 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     spawnSystem = SpawnSystem(this);
     waveSystem = WaveSystem(this);
     levelSystem = LevelSystem(this);
+    weaponSystem = WeaponSystem(this);
+
+    // 기본 무기 장착
+    weaponSystem.AddWeapon('basic_bullet', level: 1);
 
     // 배경 추가
     background = TiledBackground();
@@ -88,6 +94,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     // 시스템 업데이트
     waveSystem.Update(dt);
     spawnSystem.Update(dt);
+    weaponSystem.Update(dt);
   }
 
   /// 게임 일시정지
@@ -149,6 +156,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     spawnSystem.Reset();
     waveSystem.Reset();
     levelSystem.Reset();
+    weaponSystem.Reset();
 
     resumeEngine();
     Logger.game('Game Restarted');
