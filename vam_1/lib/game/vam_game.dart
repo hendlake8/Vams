@@ -15,6 +15,8 @@ import 'systems/level_system.dart';
 import 'systems/weapon_system.dart';
 import 'systems/skill_system.dart';
 import 'systems/equipment_system.dart';
+import 'systems/challenge_system.dart';
+import 'systems/progress_system.dart';
 import 'input/joystick_controller.dart';
 
 /// 메인 게임 클래스
@@ -35,6 +37,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   late WeaponSystem weaponSystem;
   late SkillSystem skillSystem;
   late EquipmentSystem equipmentSystem;
+  late ChallengeSystem challengeSystem;
 
   // 게임 상태
   double mElapsedTime = 0;
@@ -76,6 +79,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     weaponSystem = WeaponSystem(this);
     skillSystem = SkillSystem(this);
     equipmentSystem = EquipmentSystem(this);
+    challengeSystem = ChallengeSystem(this);
 
     // 배경 추가
     background = TiledBackground();
@@ -134,6 +138,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     spawnSystem.Update(dt);
     weaponSystem.Update(dt);
     skillSystem.Update(dt);
+    challengeSystem.Update(dt);
   }
 
   /// 게임 일시정지
@@ -163,14 +168,21 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   }
 
   /// 킬 카운트 증가
-  void AddKill() {
+  void AddKill({bool isBoss = false}) {
     mKillCount++;
+    challengeSystem.AddKill(isBoss: isBoss);
   }
 
   /// 게임 오버
   void GameOver() {
     mIsGameOver = true;
     pauseEngine();
+
+    // 일반 모드일 때만 ProgressSystem에 기록 (도전 모드는 ChallengeSystem이 처리)
+    if (!challengeSystem.isInChallengeMode) {
+      _saveProgress(isVictory: false);
+    }
+
     onGameOver?.call();
     Logger.game('Game Over - Kills: $mKillCount, Time: ${mElapsedTime.toStringAsFixed(1)}s');
   }
@@ -179,8 +191,23 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   void Victory() {
     mIsGameOver = true;
     pauseEngine();
+
+    // 일반 모드일 때만 ProgressSystem에 기록 (도전 모드는 ChallengeSystem이 처리)
+    if (!challengeSystem.isInChallengeMode) {
+      _saveProgress(isVictory: true);
+    }
+
     onVictory?.call();
     Logger.game('Victory! - Kills: $mKillCount, Time: ${mElapsedTime.toStringAsFixed(1)}s');
+  }
+
+  /// 진행 데이터 저장
+  void _saveProgress({required bool isVictory}) {
+    ProgressSystem.instance.OnGameEnd(
+      playTime: mElapsedTime.toInt(),
+      kills: mKillCount,
+      isVictory: isVictory,
+    );
   }
 
   /// 게임 재시작
@@ -198,6 +225,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     weaponSystem.Reset();
     skillSystem.Reset();
     equipmentSystem.Reset();
+    challengeSystem.Reset();
 
     resumeEngine();
     Logger.game('Game Restarted');

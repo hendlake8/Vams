@@ -192,16 +192,18 @@ class SkillSystem {
         startAngle: angle,
         damageBonus: mDamageBonus,
       );
-      mGame.player.add(orbitWeapon);
+      // 월드에 직접 추가 (플레이어 위치는 OrbitWeapon 내부에서 매 프레임 추적)
+      mGame.world.add(orbitWeapon);
     }
   }
 
   /// 회전 무기 업데이트
   void _updateOrbitWeapons(EquippedSkill skill) {
-    // 기존 회전 무기 제거
-    mGame.player.children
+    // 기존 회전 무기 제거 (월드에서 검색)
+    mGame.world.children
         .whereType<OrbitWeapon>()
         .where((w) => w.mSkillData.id == skill.skillData.id)
+        .toList()  // 반복 중 수정 방지
         .forEach((w) => w.removeFromParent());
 
     // 새로 생성
@@ -254,9 +256,10 @@ class SkillSystem {
 
   /// 리셋
   void Reset() {
-    // 회전 무기 제거
-    mGame.player.children
+    // 회전 무기 제거 (월드에서 검색)
+    mGame.world.children
         .whereType<OrbitWeapon>()
+        .toList()  // 반복 중 수정 방지
         .forEach((w) => w.removeFromParent());
 
     mEquippedSkills.clear();

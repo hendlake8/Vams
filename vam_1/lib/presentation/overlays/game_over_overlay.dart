@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/constants/design_constants.dart';
+import '../../game/systems/progress_system.dart';
 import '../../game/vam_game.dart';
 
 /// 게임 오버 / 승리 오버레이
@@ -13,6 +14,91 @@ class GameOverOverlay extends StatelessWidget {
     required this.game,
     required this.isVictory,
   });
+
+  /// 계정 보상 섹션 빌드
+  Widget _buildAccountRewardSection() {
+    final result = ProgressSystem.instance.mLastGameResult;
+    if (result == null) return const SizedBox.shrink();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.purple.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(DesignConstants.CORNER_RADIUS),
+        border: Border.all(color: Colors.purple.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        children: [
+          // 레벨업 표시
+          if (result.leveledUp)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.amber,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                'LEVEL UP! Lv.${result.previousLevel} → Lv.${result.newLevel}',
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+
+          // 획득 정보
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 경험치
+              _RewardItem(
+                icon: Icons.trending_up,
+                color: Colors.purple,
+                label: 'EXP',
+                value: '+${result.expGained}',
+              ),
+              const SizedBox(width: 24),
+              // 골드
+              _RewardItem(
+                icon: Icons.monetization_on,
+                color: Colors.amber,
+                label: 'GOLD',
+                value: '+${result.goldGained}',
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // 현재 경험치 바
+          if (!result.leveledUp) ...[
+            Text(
+              'Lv.${result.newLevel}  (${result.currentExp}/${result.requiredExp})',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              width: 180,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: result.currentExp / result.requiredExp,
+                  backgroundColor: Colors.white12,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.purple.shade400),
+                  minHeight: 6,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -60,6 +146,11 @@ class GameOverOverlay extends StatelessWidget {
                 ],
               ),
             ),
+
+            const SizedBox(height: 16),
+
+            // 계정 보상 정보
+            _buildAccountRewardSection(),
 
             const SizedBox(height: 48),
 
@@ -150,6 +241,45 @@ class _ResultRow extends StatelessWidget {
           style: const TextStyle(
             color: Colors.white,
             fontSize: DesignConstants.FONT_SIZE_LARGE,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _RewardItem extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final String value;
+
+  const _RewardItem({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 24),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          style: TextStyle(
+            color: color.withValues(alpha: 0.7),
+            fontSize: 10,
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),

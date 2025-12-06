@@ -10,10 +10,12 @@ import '../overlays/game_over_overlay.dart';
 /// 게임 화면
 class GameScreen extends StatefulWidget {
   final String? characterId;
+  final String? challengeId;
 
   const GameScreen({
     super.key,
     this.characterId,
+    this.challengeId,
   });
 
   @override
@@ -33,6 +35,13 @@ class _GameScreenState extends State<GameScreen> {
     _game.onLevelUp = _showSkillSelectOverlay;
     _game.onGameOver = _showGameOverOverlay;
     _game.onVictory = _showVictoryOverlay;
+
+    // 도전 모드 시작
+    if (widget.challengeId != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _game.challengeSystem.StartChallenge(widget.challengeId!);
+      });
+    }
   }
 
   void _showPauseOverlay() {

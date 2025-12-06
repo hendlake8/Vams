@@ -9,6 +9,7 @@ import '../../vam_game.dart';
 import '../actors/monster.dart';
 
 /// 회전형 무기 컴포넌트 (플레이어 주변을 회전)
+/// 월드에 추가되며, 매 프레임 플레이어 위치를 기준으로 회전 위치 계산
 class OrbitWeapon extends PositionComponent with HasGameReference<VamGame>, CollisionCallbacks {
   final SkillData mSkillData;
   final int mLevel;
@@ -81,10 +82,11 @@ class OrbitWeapon extends PositionComponent with HasGameReference<VamGame>, Coll
   }
 
   void _updatePosition() {
-    // 부모(플레이어) 중심 기준 회전 위치
+    // 플레이어 위치 기준 월드 좌표로 회전 위치 계산
+    final playerPos = game.player.position;
     final x = cos(mCurrentAngle) * mOrbitRadius;
     final y = sin(mCurrentAngle) * mOrbitRadius;
-    position = Vector2(x, y);
+    position = playerPos + Vector2(x, y);
 
     // 검 방향 회전
     angle = mCurrentAngle + pi / 2;

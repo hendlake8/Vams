@@ -1,6 +1,6 @@
 # 뱀서라이크 슈팅 게임 구현 내역서
 
-> 문서 버전: 1.3
+> 문서 버전: 1.5
 > 최종 수정일: 2025-12-06
 
 ---
@@ -14,6 +14,7 @@
 5. [데이터 모델](#5-데이터-모델)
 6. [시스템 연동 흐름](#6-시스템-연동-흐름)
 7. [개발 로드맵 진행 현황](#7-개발-로드맵-진행-현황)
+8. [버그 수정 이력](#8-버그-수정-이력)
 
 ---
 
@@ -49,6 +50,8 @@
 | 웨이브 시스템 | `wave_system.dart` | ✅ 완료 | 시간 기반 웨이브 진행 |
 | 전투 시스템 | `combat_system.dart` | ✅ 완료 | 데미지 계산 |
 | 장비 시스템 | `equipment_system.dart` | ✅ 완료 | 장비 인벤토리, 장착/해제, 강화 (Phase 2) |
+| 도전 시스템 | `challenge_system.dart` | ✅ 완료 | 도전 모드 관리, 진행/클리어/보상 (Phase 2) |
+| 진행 시스템 | `progress_system.dart` | ✅ 완료 | 영구 저장 (계정 레벨, 재화, 기록) (Phase 2) |
 
 ### 2.2 게임 오브젝트
 
@@ -72,6 +75,7 @@
 | 캐릭터 선택 | `character_select_screen.dart` | ✅ 완료 | 캐릭터 선택 UI (Phase 2) |
 | 장비 관리 | `equipment_screen.dart` | ✅ 완료 | 장비 장착/강화 UI (Phase 2) |
 | 장비 합성 | `fusion_screen.dart` | ✅ 완료 | 장비 합성 UI (Phase 2) |
+| 도전 선택 | `challenge_screen.dart` | ✅ 완료 | 도전 모드 선택 UI (Phase 2) |
 
 ### 2.4 데이터 모델
 
@@ -81,6 +85,8 @@
 | 무기 데이터 | `weapon_data.dart` | ✅ 완료 | 5개 무기 정의 (스킬 연결) |
 | 캐릭터 데이터 | `character_data.dart` | ✅ 완료 | 5개 캐릭터 정의 (Phase 2) |
 | 장비 데이터 | `equipment_data.dart` | ✅ 완료 | 9개 장비 정의 (Phase 2) |
+| 도전 데이터 | `challenge_data.dart` | ✅ 완료 | 8개 도전 정의 (Phase 2) |
+| 진행 데이터 | `progress_data.dart` | ✅ 완료 | 계정 레벨, 재화, 기록 (Phase 2) |
 | 액터 스탯 | `actor_stats.dart` | ✅ 완료 | 공통 스탯 구조 |
 
 ---
@@ -106,6 +112,8 @@ lib/
 │   ├── weapon_data.dart               # 무기 정의 ⭐
 │   ├── character_data.dart            # 캐릭터 정의 ⭐ (Phase 2)
 │   ├── equipment_data.dart            # 장비 정의 ⭐ (Phase 2)
+│   ├── challenge_data.dart            # 도전 정의 ⭐ (Phase 2)
+│   ├── progress_data.dart             # 진행 데이터 ⭐ (Phase 2)
 │   └── actor_stats.dart
 │
 ├── game/                              # 게임 로직
@@ -128,6 +136,8 @@ lib/
 │       ├── skill_system.dart          # 스킬 시스템 ⭐
 │       ├── level_system.dart          # 레벨 시스템 ⭐
 │       ├── equipment_system.dart      # 장비 시스템 ⭐ (Phase 2)
+│       ├── challenge_system.dart      # 도전 시스템 ⭐ (Phase 2)
+│       ├── progress_system.dart       # 진행 시스템 ⭐ (Phase 2)
 │       ├── combat_system.dart
 │       ├── spawn_system.dart
 │       └── wave_system.dart
@@ -287,6 +297,97 @@ EquipmentInstance? mFusionResult;             // 합성 결과
 - Legendary는 합성 불가 (최상위)
 - 장착 중인 장비는 합성 불가
 
+### 4.9 ChallengeSystem (Phase 2)
+
+**역할**: 도전 모드 관리, 진행 상태, 클리어/보상 처리
+
+```dart
+class ChallengeSystem {
+  ChallengeData? mCurrentChallenge;  // 현재 진행 중인 도전
+  bool mIsInChallengeMode;
+
+  // 진행 상태
+  int mCurrentWave;
+  int mKillCount;
+  double mElapsedTime;
+  int mBossKillCount;
+
+  int get playerLevel => ProgressSystem.instance.playerLevel;  // 계정 레벨 연동
+
+  bool StartChallenge(String challengeId);  // 도전 시작
+  void Update(double dt);                   // 매 프레임 업데이트 (클리어 조건 체크)
+  void AddKill({bool isBoss = false});      // 킬 카운트 증가
+  void AdvanceWave();                       // 웨이브 진행
+
+  bool IsUnlocked(ChallengeData challenge); // 해금 여부 (레벨 + 선행 도전)
+  ChallengeStatus GetStatus(ChallengeData); // 잠금/가능/클리어 상태
+  ChallengeRecord? GetRecord(String id);    // 기록 조회
+}
+```
+
+**도전 타입 (4종)**:
+- `Endless`: 무한 웨이브 버티기
+- `BossRush`: 보스 연속 처치
+- `TimeAttack`: 시간 내 처치 수
+- `Survival`: 생존 시간
+
+### 4.10 ProgressSystem (Phase 2)
+
+**역할**: 영구 진행 데이터 저장/불러오기 (SharedPreferences 기반)
+
+```dart
+class ProgressSystem {
+  static ProgressSystem get instance;  // 싱글톤
+
+  ProgressData _data;  // 전체 진행 데이터
+
+  int get playerLevel;  // 계정 레벨
+  int get gold;         // 골드
+  int get gems;         // 보석
+
+  Future<void> Initialize();  // 저장 데이터 불러오기
+  Future<void> Save();        // 저장
+
+  Future<void> OnGameEnd({    // 게임 종료 시 호출
+    required int playTime,
+    required int kills,
+    required bool isVictory,
+    String? challengeId,
+    int wave, int bossKills,
+  });
+
+  Future<void> AddCurrency({int gold, int gems});   // 재화 추가
+  Future<bool> SpendCurrency({int gold, int gems}); // 재화 사용
+
+  ChallengeRecordData? GetChallengeRecord(String id);  // 도전 기록 조회
+  bool IsChallengeCleared(String challengeId);         // 클리어 여부
+}
+```
+
+**경험치/골드 계산**:
+- 기본 경험치: 10
+- 처치 보너스: 10킬당 1exp
+- 시간 보너스: 1분당 1exp
+- 승리 보너스: 50exp
+- 골드: 처치당 2골드 + 승리 보너스 100
+
+### 4.11 ChallengeScreen (StatefulWidget) - Phase 2
+
+**역할**: 도전 모드 선택 UI
+
+**구성 요소**:
+- `TabBar`: 도전 타입별 탭 (무한/보스러시/타임어택/서바이벌)
+- `_buildTypeDescription`: 선택된 타입 설명
+- `_buildChallengeList`: 도전 목록 (ListView)
+- `_buildChallengeCard`: 개별 도전 카드 (잠금/클리어 상태, 난이도 별)
+- `_showChallengeDetail`: 도전 상세/시작 다이얼로그
+
+**상태 관리**:
+```dart
+TabController mTabController;
+ChallengeType mSelectedType;  // 선택된 도전 타입
+```
+
 ---
 
 ## 5. 데이터 모델
@@ -390,6 +491,67 @@ class EquipmentInstance {
 | equip_critical_ring | 치명의 반지 | 액세서리 | Rare | CRIT+10%, CDMG+25% |
 | equip_life_pendant | 생명의 펜던트 | 액세서리 | Epic | HP+80, DEF+5 |
 
+### 5.7 ChallengeData (Phase 2)
+
+```dart
+class ChallengeData {
+  final String id;
+  final String name;
+  final String description;
+  final ChallengeType type;        // endless, bossRush, timeAttack, survival
+  final ChallengeDifficulty difficulty;  // easy ~ hell
+  final ChallengeCondition condition;    // 클리어 조건
+  final ChallengeModifier modifier;      // 난이도 변경자
+  final List<ChallengeReward> rewards;   // 클리어 보상
+  final int unlockLevel;                 // 해금 레벨
+  final String? prerequisiteId;          // 선행 도전 ID
+}
+```
+
+### 5.8 정의된 도전 목록 (Phase 2)
+
+| 도전 ID | 이름 | 타입 | 난이도 | 해금 레벨 | 클리어 조건 |
+|---------|------|------|--------|-----------|-------------|
+| endless_1 | 무한의 시련 | Endless | Easy | 1 | 웨이브 10 도달 |
+| endless_2 | 끝없는 전쟁 | Endless | Hard | 5 | 웨이브 20 도달 |
+| boss_rush_1 | 보스 사냥꾼 | BossRush | Normal | 3 | 보스 5마리 처치 |
+| boss_rush_2 | 보스 학살자 | BossRush | Hard | 7 | 보스 10마리 처치 |
+| time_attack_1 | 속도전 | TimeAttack | Easy | 2 | 60초 내 100킬 |
+| time_attack_2 | 학살자 | TimeAttack | Normal | 4 | 90초 내 200킬 |
+| survival_1 | 생존자 | Survival | Normal | 3 | 120초 생존 |
+| survival_2 | 불사신 | Survival | Hell | 10 | 300초 생존 |
+
+### 5.9 ProgressData (Phase 2)
+
+```dart
+class ProgressData {
+  final AccountLevel accountLevel;           // 계정 레벨
+  final CurrencyData currency;               // 재화 (골드, 보석)
+  final Map<String, ChallengeRecordData> challengeRecords;  // 도전 기록
+  final int totalPlayTime;                   // 총 플레이 시간
+  final int totalKills;                      // 총 처치 수
+  final int totalGamesPlayed;                // 총 게임 수
+}
+
+class AccountLevel {
+  final int level;
+  final int currentExp;
+  final int totalExp;
+
+  static int GetRequiredExpForLevel(int level);  // 100 + (level-1) * 50
+  AccountLevel AddExp(int exp);                  // 레벨업 자동 처리
+}
+
+class ChallengeRecordData {
+  final String challengeId;
+  final bool isCleared;
+  final int bestWave;
+  final int bestKills;
+  final int bestTime;
+  final String? clearedAt;
+}
+```
+
 ---
 
 ## 6. 시스템 연동 흐름
@@ -482,6 +644,84 @@ class EquipmentInstance {
         └── AreaEffectComponent 표시
 ```
 
+### 6.4 도전 모드 흐름 (Phase 2)
+
+```
+[메인 로비]
+    │
+    ├── ProgressSystem.Initialize()
+    │   └── SharedPreferences에서 저장 데이터 불러오기
+    │
+    ▼
+[도전 모드 버튼 클릭]
+    │
+    ▼
+[ChallengeScreen]
+    │
+    ├── 도전 타입 탭 선택
+    ├── challengeSystem.GetStatus() → 잠금/가능/클리어 표시
+    │
+    ▼
+[도전 선택 → 캐릭터 선택]
+    │
+    ▼
+[GameScreen(characterId, challengeId)]
+    │
+    ├── VamGame 생성
+    ├── challengeSystem.StartChallenge(challengeId)
+    │   ├── 변경자 적용 (스폰 속도, 적 강화 등)
+    │   └── 진행 상태 초기화
+    │
+    ▼
+[게임 플레이]
+    │
+    ├── challengeSystem.Update(dt)
+    │   ├── 클리어 조건 체크
+    │   └── 시간 초과 체크 (타임어택)
+    │
+    ├── 클리어 시:
+    │   ├── _grantRewards() → 보상 지급
+    │   ├── _saveProgress() → 기록 저장
+    │   └── game.Victory()
+    │
+    └── 실패 시:
+        ├── _saveProgress() → 기록 저장 (최고 기록)
+        └── game.GameOver()
+```
+
+### 6.5 영구 진행 데이터 흐름 (Phase 2)
+
+```
+[앱 시작]
+    │
+    ▼
+[MainLobbyScreen]
+    │
+    ├── ProgressSystem.Initialize()
+    │   └── SharedPreferences.getString('vam_progress_data')
+    │       └── ProgressData.FromJson()
+    │
+    ├── _buildTopBar()
+    │   ├── 레벨 뱃지 (accountLevel.level)
+    │   ├── 경험치 바 (accountLevel.progress)
+    │   ├── 골드 표시 (currency.gold)
+    │   └── 보석 표시 (currency.gems)
+    │
+    ▼
+[게임 종료]
+    │
+    ▼
+[ProgressSystem.OnGameEnd()]
+    │
+    ├── 경험치 계산 (기본 + 킬 + 시간 + 승리)
+    ├── 골드 계산 (킬 + 승리)
+    ├── accountLevel.AddExp() → 레벨업 처리
+    ├── 도전 기록 업데이트 (최고 기록, 클리어 여부)
+    │
+    └── Save()
+        └── SharedPreferences.setString()
+```
+
 ---
 
 ## 7. 개발 로드맵 진행 현황
@@ -512,7 +752,8 @@ class EquipmentInstance {
 | 장비 드롭 | ✅ 완료 | 확률 기반 랜덤 드롭 시스템 |
 | 장비 합성 | ✅ 완료 | 동일 등급 3개 → 상위 등급 합성 |
 | 장비 합성 UI | ✅ 완료 | 재료 선택, 합성 실행, 결과 표시 |
-| 도전 콘텐츠 | 📋 예정 | 도전 스테이지 |
+| 도전 콘텐츠 | ✅ 완료 | 4종 도전 모드 (무한/보스러시/타임어택/서바이벌) |
+| 진행 시스템 | ✅ 완료 | 계정 레벨, 재화, 도전 기록 영구 저장 |
 | 순찰/상점 | 📋 예정 | 방치형 보상, 상점 |
 
 ### 7.3 정의된 캐릭터 목록 (Phase 2)
@@ -530,27 +771,44 @@ class EquipmentInstance {
 ```
 [메인 로비]
     │
-    ▼
-[캐릭터 선택 화면] ← Phase 2 추가
+    ├── ProgressSystem.Initialize() 호출
+    ├── 상단바: 레벨/경험치/골드/보석 표시
     │
-    ├── 캐릭터 카드 리스트 (가로 스크롤)
-    ├── 캐릭터 상세 정보 (스탯, 무기, 설명)
-    └── 시작 버튼
+    ├── [게임 시작 버튼]
+    │   │
+    │   ▼
+    │   [캐릭터 선택 화면]
+    │       ├── 캐릭터 카드 리스트 (가로 스크롤)
+    │       ├── 캐릭터 상세 정보 (스탯, 무기, 설명)
+    │       └── 시작 버튼
+    │
+    └── [도전 모드 버튼]
+        │
+        ▼
+        [ChallengeScreen]
+            ├── 도전 타입 탭 (무한/보스러시/타임어택/서바이벌)
+            ├── 도전 목록 (잠금/가능/클리어 상태)
+            └── 도전 선택 → 캐릭터 선택 화면
     │
     ▼
 [게임 시작]
     │
-    ├── VamGame(characterId)
+    ├── VamGame(characterId, challengeId?)
     ├── 캐릭터별 기본 무기 장착
     ├── 캐릭터별 스탯/색상 적용
+    ├── (도전 모드) 변경자 적용
     │
     ▼
 [게임 플레이]
     │
-    ├── Wave1 (60초) → MidBoss → Wave2 (70초) → FinalBoss
+    ├── 일반 모드: Wave1 (60초) → MidBoss → Wave2 (70초) → FinalBoss
+    ├── 도전 모드: 도전별 규칙 (웨이브/보스/타임어택/서바이벌)
     │
     ▼
-[보스 처치 → Victory / 사망 → GameOver]
+[게임 종료]
+    │
+    ├── ProgressSystem.OnGameEnd() → 경험치/골드/기록 저장
+    └── Victory / GameOver 화면
 ```
 
 ---
@@ -563,3 +821,202 @@ class EquipmentInstance {
 | 1.1 | 2025-12-06 | Phase 2 캐릭터 시스템 추가 (캐릭터 선택 UI, 5개 캐릭터 정의) |
 | 1.2 | 2025-12-06 | Phase 2 장비 시스템 추가 (장비 데이터, 시스템, UI, 9개 장비 정의) |
 | 1.3 | 2025-12-06 | Phase 2 장비 합성 추가 (합성 로직, 합성 UI) |
+| 1.4 | 2025-12-06 | Phase 2 도전/진행 시스템 추가 (ChallengeSystem, ProgressSystem) |
+| 1.5 | 2025-12-06 | 버그 수정: 레벨업/도전모드/결과화면/로비UI/회전무기 수정 |
+
+---
+
+## 8. 버그 수정 이력
+
+### 8.1 레벨업 시스템 버그 수정
+
+**문제**: 일반 게임 모드에서 레벨업이 되지 않음
+
+**원인**: `ProgressSystem.OnGameEnd()`가 `ChallengeSystem`에서만 호출되고 일반 모드에서는 호출되지 않음
+
+**수정 파일**: `lib/game/vam_game.dart`
+
+**수정 내용**:
+```dart
+void GameOver() {
+  mIsGameOver = true;
+  pauseEngine();
+
+  // 일반 모드일 때만 ProgressSystem에 기록 (도전 모드는 ChallengeSystem이 처리)
+  if (!challengeSystem.isInChallengeMode) {
+    _saveProgress(isVictory: false);
+  }
+
+  onGameOver?.call();
+}
+
+void _saveProgress({required bool isVictory}) {
+  ProgressSystem.instance.OnGameEnd(
+    playTime: mElapsedTime.toInt(),
+    kills: mKillCount,
+    isVictory: isVictory,
+  );
+}
+```
+
+### 8.2 도전 모드 클리어 버그 수정
+
+**문제**: 무한 웨이브 도전 모드에서 클리어 조건을 충족해도 클리어되지 않음
+
+**원인**: `AdvanceWave()` 메서드가 정의만 되어 있고 실제로 호출되지 않아 `mCurrentWave`가 항상 0
+
+**수정 파일**: `lib/game/systems/challenge_system.dart`
+
+**수정 내용**:
+```dart
+// 웨이브 타이머 (무한 모드용)
+double mWaveTimer = 0;
+static const double WAVE_INTERVAL = 30.0;  // 30초마다 웨이브 증가
+
+void Update(double dt) {
+  if (!mIsInChallengeMode || mCurrentChallenge == null) return;
+
+  mElapsedTime += dt;
+
+  // 무한 모드: 시간 기반 웨이브 증가
+  if (mCurrentChallenge!.type == ChallengeType.endless) {
+    mWaveTimer += dt;
+    if (mWaveTimer >= WAVE_INTERVAL) {
+      mWaveTimer = 0;
+      AdvanceWave();
+
+      // 웨이브 증가 시 스폰 속도 증가
+      final newInterval = 0.5 - (mCurrentWave * 0.02);
+      mGame.spawnSystem.SetSpawnInterval(newInterval.clamp(0.1, 0.5));
+    }
+  }
+
+  // 클리어/시간초과 체크...
+}
+```
+
+### 8.3 결과 화면 계정 정보 누락 수정
+
+**문제**: 게임 오버/승리 화면에 획득 경험치/골드/레벨업 정보가 표시되지 않음
+
+**수정 파일**:
+- `lib/game/systems/progress_system.dart`
+- `lib/presentation/overlays/game_over_overlay.dart`
+
+**수정 내용**:
+
+1. `progress_system.dart`에 게임 결과 데이터 클래스 추가:
+```dart
+// 마지막 게임 결과 (결과창 표시용)
+GameEndResult? mLastGameResult;
+
+class GameEndResult {
+  final int expGained;
+  final int goldGained;
+  final int previousLevel;
+  final int newLevel;
+  final bool leveledUp;
+  final int currentExp;
+  final int requiredExp;
+}
+```
+
+2. `game_over_overlay.dart`에 계정 보상 섹션 추가:
+```dart
+Widget _buildAccountRewardSection() {
+  final result = ProgressSystem.instance.mLastGameResult;
+  if (result == null) return const SizedBox.shrink();
+
+  return Container(
+    // 레벨업 배너 (if leveledUp)
+    // 획득 EXP/GOLD 표시
+    // 현재 경험치 바
+  );
+}
+```
+
+### 8.4 로비 UI 갱신 버그 수정
+
+**문제**: 게임 종료 후 로비로 돌아와도 레벨/경험치/재화 정보가 갱신되지 않음
+
+**원인**: `CharacterSelectScreen`에서 `pushReplacement` 사용으로 `.then()` 콜백 체인이 끊김
+
+**수정 파일**: `lib/presentation/screens/character_select_screen.dart`
+
+**수정 내용**:
+```dart
+// 변경 전
+Navigator.of(context).pushReplacement(
+  MaterialPageRoute(builder: (context) => GameScreen(...)),
+);
+
+// 변경 후
+Navigator.of(context).push(
+  MaterialPageRoute(builder: (context) => GameScreen(...)),
+).then((_) {
+  // 게임에서 돌아오면 로비로 돌아가기
+  if (mounted) {
+    Navigator.of(context).pop();
+  }
+});
+```
+
+### 8.5 회전 무기(OrbitWeapon) 회전 중심 버그 수정
+
+**문제**: 회전칼(spinning blade)이 캐릭터 중심이 아닌 화면 원점(0,0)을 중심으로 회전
+
+**원인**:
+- OrbitWeapon이 Player의 자식 컴포넌트로 추가되고 상대 좌표로 위치 계산
+- Flame 엔진에서 자식 컴포넌트의 충돌 히트박스가 부모의 transform을 제대로 상속받지 못함
+- 렌더링은 따라가지만 실제 위치 및 충돌 감지는 로컬 좌표 기준으로 동작
+
+**수정 파일**:
+- `lib/game/components/weapons/orbit_weapon.dart`
+- `lib/game/systems/skill_system.dart`
+
+**수정 내용**:
+
+1. `orbit_weapon.dart` - 플레이어 위치를 월드 좌표로 계산:
+```dart
+void _updatePosition() {
+  // 플레이어 위치 기준 월드 좌표로 회전 위치 계산
+  final playerPos = game.player.position;
+  final x = cos(mCurrentAngle) * mOrbitRadius;
+  final y = sin(mCurrentAngle) * mOrbitRadius;
+  position = playerPos + Vector2(x, y);
+
+  // 검 방향 회전
+  angle = mCurrentAngle + pi / 2;
+}
+```
+
+2. `skill_system.dart` - 월드에 직접 추가:
+```dart
+void _createOrbitWeapons(EquippedSkill skill) {
+  for (int i = 0; i < count; i++) {
+    final orbitWeapon = OrbitWeapon(...);
+    // 변경 전: mGame.player.add(orbitWeapon);
+    // 변경 후: 월드에 직접 추가
+    mGame.world.add(orbitWeapon);
+  }
+}
+
+void _updateOrbitWeapons(EquippedSkill skill) {
+  // 월드에서 검색
+  mGame.world.children
+      .whereType<OrbitWeapon>()
+      .where((w) => w.mSkillData.id == skill.skillData.id)
+      .toList()
+      .forEach((w) => w.removeFromParent());
+  _createOrbitWeapons(skill);
+}
+
+void Reset() {
+  // 월드에서 검색
+  mGame.world.children
+      .whereType<OrbitWeapon>()
+      .toList()
+      .forEach((w) => w.removeFromParent());
+  // ...
+}
+```

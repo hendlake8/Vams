@@ -8,7 +8,12 @@ import 'game_screen.dart';
 
 /// 캐릭터 선택 화면
 class CharacterSelectScreen extends StatefulWidget {
-  const CharacterSelectScreen({super.key});
+  final String? challengeId;  // 도전 모드 ID (있으면 도전 모드)
+
+  const CharacterSelectScreen({
+    super.key,
+    this.challengeId,
+  });
 
   @override
   State<CharacterSelectScreen> createState() => _CharacterSelectScreenState();
@@ -348,22 +353,32 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
               height: 56,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).pushReplacement(
+                  Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (context) => GameScreen(
                         characterId: mSelectedCharacter.id,
+                        challengeId: widget.challengeId,
                       ),
                     ),
-                  );
+                  ).then((_) {
+                    // 게임에서 돌아오면 로비로 돌아가기
+                    if (mounted) {
+                      Navigator.of(context).pop();
+                    }
+                  });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: DesignConstants.COLOR_PRIMARY,
+                  backgroundColor: widget.challengeId != null
+                      ? Colors.amber
+                      : DesignConstants.COLOR_PRIMARY,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(DesignConstants.CORNER_RADIUS),
                   ),
                 ),
                 child: Text(
-                  '${mSelectedCharacter.name}(으)로 시작',
+                  widget.challengeId != null
+                      ? '${mSelectedCharacter.name}(으)로 도전!'
+                      : '${mSelectedCharacter.name}(으)로 시작',
                   style: const TextStyle(
                     fontSize: DesignConstants.FONT_SIZE_LARGE,
                     fontWeight: FontWeight.bold,
