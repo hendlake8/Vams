@@ -1,7 +1,9 @@
 /// 영구 진행 데이터 모델
-/// 계정 레벨, 누적 경험치, 재화, 도전 기록, 장비 등을 관리
+/// 계정 레벨, 누적 경험치, 재화, 도전 기록, 장비, 순찰, 상점 등을 관리
 
 import 'equipment_data.dart';
+import 'patrol_data.dart';
+import 'shop_data.dart';
 
 /// 계정 레벨 데이터
 class AccountLevel {
@@ -376,7 +378,9 @@ class ProgressData {
   final AccountLevel accountLevel;
   final CurrencyData currency;
   final Map<String, ChallengeRecordData> challengeRecords;
-  final EquipmentProgressData equipment;  // 장비 데이터 추가
+  final EquipmentProgressData equipment;  // 장비 데이터
+  final PatrolProgressData patrol;        // 순찰 데이터
+  final ShopProgressData shop;            // 상점 데이터
   final int totalPlayTime;      // 총 플레이 시간 (초)
   final int totalKills;         // 총 처치 수
   final int totalGamesPlayed;   // 총 게임 횟수
@@ -386,6 +390,8 @@ class ProgressData {
     this.currency = const CurrencyData(),
     this.challengeRecords = const {},
     this.equipment = const EquipmentProgressData(),
+    this.patrol = const PatrolProgressData(),
+    this.shop = const ShopProgressData(),
     this.totalPlayTime = 0,
     this.totalKills = 0,
     this.totalGamesPlayed = 0,
@@ -399,11 +405,9 @@ class ProgressData {
     int goldGained = 0,
     int gemsGained = 0,
   }) {
-    return ProgressData(
+    return copyWith(
       accountLevel: accountLevel.AddExp(expGained),
       currency: currency.AddGold(goldGained).AddGems(gemsGained),
-      challengeRecords: challengeRecords,
-      equipment: equipment,
       totalPlayTime: totalPlayTime + playTime,
       totalKills: totalKills + kills,
       totalGamesPlayed: totalGamesPlayed + 1,
@@ -414,27 +418,46 @@ class ProgressData {
   ProgressData UpdateChallengeRecord(ChallengeRecordData record) {
     final newRecords = Map<String, ChallengeRecordData>.from(challengeRecords);
     newRecords[record.challengeId] = record;
-    return ProgressData(
-      accountLevel: accountLevel,
-      currency: currency,
-      challengeRecords: newRecords,
-      equipment: equipment,
-      totalPlayTime: totalPlayTime,
-      totalKills: totalKills,
-      totalGamesPlayed: totalGamesPlayed,
-    );
+    return copyWith(challengeRecords: newRecords);
   }
 
   /// 장비 데이터 업데이트
   ProgressData UpdateEquipment(EquipmentProgressData newEquipment) {
+    return copyWith(equipment: newEquipment);
+  }
+
+  /// 순찰 데이터 업데이트
+  ProgressData UpdatePatrol(PatrolProgressData newPatrol) {
+    return copyWith(patrol: newPatrol);
+  }
+
+  /// 상점 데이터 업데이트
+  ProgressData UpdateShop(ShopProgressData newShop) {
+    return copyWith(shop: newShop);
+  }
+
+  /// copyWith 메서드
+  ProgressData copyWith({
+    AccountLevel? accountLevel,
+    CurrencyData? currency,
+    Map<String, ChallengeRecordData>? challengeRecords,
+    EquipmentProgressData? equipment,
+    PatrolProgressData? patrol,
+    ShopProgressData? shop,
+    int? totalPlayTime,
+    int? totalKills,
+    int? totalGamesPlayed,
+  }) {
     return ProgressData(
-      accountLevel: accountLevel,
-      currency: currency,
-      challengeRecords: challengeRecords,
-      equipment: newEquipment,
-      totalPlayTime: totalPlayTime,
-      totalKills: totalKills,
-      totalGamesPlayed: totalGamesPlayed,
+      accountLevel: accountLevel ?? this.accountLevel,
+      currency: currency ?? this.currency,
+      challengeRecords: challengeRecords ?? this.challengeRecords,
+      equipment: equipment ?? this.equipment,
+      patrol: patrol ?? this.patrol,
+      shop: shop ?? this.shop,
+      totalPlayTime: totalPlayTime ?? this.totalPlayTime,
+      totalKills: totalKills ?? this.totalKills,
+      totalGamesPlayed: totalGamesPlayed ?? this.totalGamesPlayed,
     );
   }
 
@@ -446,6 +469,8 @@ class ProgressData {
         (key, value) => MapEntry(key, value.ToJson()),
       ),
       'equipment': equipment.ToJson(),
+      'patrol': patrol.ToJson(),
+      'shop': shop.ToJson(),
       'totalPlayTime': totalPlayTime,
       'totalKills': totalKills,
       'totalGamesPlayed': totalGamesPlayed,
@@ -472,6 +497,12 @@ class ProgressData {
       equipment: json['equipment'] != null
           ? EquipmentProgressData.FromJson(json['equipment'] as Map<String, dynamic>)
           : const EquipmentProgressData(),
+      patrol: json['patrol'] != null
+          ? PatrolProgressData.FromJson(json['patrol'] as Map<String, dynamic>)
+          : const PatrolProgressData(),
+      shop: json['shop'] != null
+          ? ShopProgressData.FromJson(json['shop'] as Map<String, dynamic>)
+          : const ShopProgressData(),
       totalPlayTime: json['totalPlayTime'] as int? ?? 0,
       totalKills: json['totalKills'] as int? ?? 0,
       totalGamesPlayed: json['totalGamesPlayed'] as int? ?? 0,

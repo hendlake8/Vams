@@ -195,7 +195,7 @@ class ChallengeSystem {
           if (reward.itemId != null) {
             final equipData = DefaultEquipments.GetById(reward.itemId!);
             if (equipData != null) {
-              mGame.equipmentSystem.AddEquipment(equipData);
+              ProgressSystem.instance.AddEquipment(reward.itemId!);
               Logger.game('Reward: Equipment ${equipData.name}');
             }
           }

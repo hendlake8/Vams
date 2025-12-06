@@ -1,6 +1,6 @@
 # 뱀서라이크 슈팅 게임 구현 내역서
 
-> 문서 버전: 1.6
+> 문서 버전: 1.7
 > 최종 수정일: 2025-12-06
 
 ---
@@ -16,6 +16,7 @@
 7. [개발 로드맵 진행 현황](#7-개발-로드맵-진행-현황)
 8. [버그 수정 이력](#8-버그-수정-이력)
 9. [장비 시스템 아키텍처 변경](#9-장비-시스템-아키텍처-변경)
+10. [순찰/상점 시스템](#10-순찰상점-시스템)
 
 ---
 
@@ -53,6 +54,8 @@
 | 장비 시스템 | `equipment_system.dart` | ✅ 완료 | 장비 인벤토리, 장착/해제, 강화 (Phase 2) |
 | 도전 시스템 | `challenge_system.dart` | ✅ 완료 | 도전 모드 관리, 진행/클리어/보상 (Phase 2) |
 | 진행 시스템 | `progress_system.dart` | ✅ 완료 | 영구 저장 (계정 레벨, 재화, 기록) (Phase 2) |
+| 순찰 시스템 | `patrol_data.dart` | ✅ 완료 | 방치형 보상 시스템 (Phase 2.2) |
+| 상점 시스템 | `shop_data.dart` | ✅ 완료 | 재화 교환/아이템 구매 (Phase 2.2) |
 
 ### 2.2 게임 오브젝트
 
@@ -78,6 +81,8 @@
 | 장비 관리 (로비) | `equipment_management_screen.dart` | ✅ 완료 | 로비 장비 관리 (Phase 2.1, 영구 저장) |
 | 장비 합성 | `fusion_screen.dart` | ✅ 완료 | 장비 합성 UI (Phase 2) |
 | 도전 선택 | `challenge_screen.dart` | ✅ 완료 | 도전 모드 선택 UI (Phase 2) |
+| 순찰 화면 | `patrol_screen.dart` | ✅ 완료 | 방치형 순찰 UI (Phase 2.2) |
+| 상점 화면 | `shop_screen.dart` | ✅ 완료 | 상점 구매 UI (Phase 2.2) |
 
 ### 2.4 데이터 모델
 
@@ -89,6 +94,8 @@
 | 장비 데이터 | `equipment_data.dart` | ✅ 완료 | 9개 장비 정의 (Phase 2) |
 | 도전 데이터 | `challenge_data.dart` | ✅ 완료 | 8개 도전 정의 (Phase 2) |
 | 진행 데이터 | `progress_data.dart` | ✅ 완료 | 계정 레벨, 재화, 기록 (Phase 2) |
+| 순찰 데이터 | `patrol_data.dart` | ✅ 완료 | 순찰 지역, 보상 계산 (Phase 2.2) |
+| 상점 데이터 | `shop_data.dart` | ✅ 완료 | 상점 아이템, 구매 기록 (Phase 2.2) |
 | 액터 스탯 | `actor_stats.dart` | ✅ 완료 | 공통 스탯 구조 |
 
 ---
@@ -116,6 +123,8 @@ lib/
 │   ├── equipment_data.dart            # 장비 정의 ⭐ (Phase 2)
 │   ├── challenge_data.dart            # 도전 정의 ⭐ (Phase 2)
 │   ├── progress_data.dart             # 진행 데이터 ⭐ (Phase 2)
+│   ├── patrol_data.dart               # 순찰 데이터 ⭐ (Phase 2.2)
+│   ├── shop_data.dart                 # 상점 데이터 ⭐ (Phase 2.2)
 │   └── actor_stats.dart
 │
 ├── game/                              # 게임 로직
@@ -151,6 +160,8 @@ lib/
     │   ├── equipment_screen.dart         # 장비 관리 (게임 내) ⭐ (Phase 2)
     │   ├── equipment_management_screen.dart  # 장비 관리 (로비) ⭐ (Phase 2.1)
     │   ├── fusion_screen.dart            # 장비 합성 ⭐ (Phase 2)
+    │   ├── patrol_screen.dart            # 순찰 화면 ⭐ (Phase 2.2)
+    │   ├── shop_screen.dart              # 상점 화면 ⭐ (Phase 2.2)
     │   └── game_screen.dart
     └── overlays/
         ├── hud_overlay.dart
@@ -757,7 +768,7 @@ class ChallengeRecordData {
 | 장비 합성 UI | ✅ 완료 | 재료 선택, 합성 실행, 결과 표시 |
 | 도전 콘텐츠 | ✅ 완료 | 4종 도전 모드 (무한/보스러시/타임어택/서바이벌) |
 | 진행 시스템 | ✅ 완료 | 계정 레벨, 재화, 도전 기록 영구 저장 |
-| 순찰/상점 | 📋 예정 | 방치형 보상, 상점 |
+| 순찰/상점 | ✅ 완료 | 방치형 보상, 상점 (Phase 2.2) |
 
 ### 7.3 정의된 캐릭터 목록 (Phase 2)
 
@@ -827,6 +838,7 @@ class ChallengeRecordData {
 | 1.4 | 2025-12-06 | Phase 2 도전/진행 시스템 추가 (ChallengeSystem, ProgressSystem) |
 | 1.5 | 2025-12-06 | 버그 수정: 레벨업/도전모드/결과화면/로비UI/회전무기 수정 |
 | 1.6 | 2025-12-06 | 장비 시스템 아키텍처 변경: 영구 저장, 로비 UI, 스킬 기반 캐릭터 |
+| 1.7 | 2025-12-06 | 순찰/상점 시스템 구현, 스킬 레벨 합산 버그 수정 |
 
 ---
 
@@ -1024,6 +1036,63 @@ void Reset() {
   // ...
 }
 ```
+
+### 8.6 장비/캐릭터 스킬 레벨 합산 버그 수정
+
+**문제**: 철검 착용한 검사가 회전칼 2레벨로 시작해야 하는데 1레벨로 시작됨
+
+**원인**: `InitializeStarterSkills()`에서 장비 스킬과 캐릭터 스킬이 같을 경우 조건문으로 캐릭터 스킬이 추가되지 않음
+
+**문제 코드**:
+```dart
+// 장비 무기 스킬과 캐릭터 기본 스킬이 다르면 추가
+if (characterSkillId != weaponSkillId) {
+  skillSystem.AddSkill(characterSkillId, level: 1);  // 같은 스킬이면 실행 안됨!
+}
+```
+
+**수정 파일**: `lib/game/vam_game.dart`
+
+**수정 내용**:
+```dart
+void InitializeStarterSkills() {
+  // 스킬별 레벨을 누적할 맵
+  final Map<String, int> skillLevels = {};
+
+  // 1. 장비 무기의 스킬 추가 (레벨 1)
+  final weaponSkillId = ProgressSystem.instance.GetEquippedWeaponSkillId();
+  if (weaponSkillId != null) {
+    skillLevels[weaponSkillId] = (skillLevels[weaponSkillId] ?? 0) + 1;
+  } else {
+    const defaultWeaponSkillId = 'skill_energy_bolt';
+    skillLevels[defaultWeaponSkillId] = (skillLevels[defaultWeaponSkillId] ?? 0) + 1;
+  }
+
+  // 2. 캐릭터 기본 스킬 추가 (레벨 1)
+  // 장비 스킬과 같아도 레벨이 합산됨!
+  final characterSkillId = mCharacterData.baseSkillId;
+  skillLevels[characterSkillId] = (skillLevels[characterSkillId] ?? 0) + 1;
+
+  // 3. 누적된 레벨로 스킬 적용
+  for (final entry in skillLevels.entries) {
+    final skillId = entry.key;
+    final level = entry.value;
+    skillSystem.AddSkill(skillId, level: level);
+    levelSystem.mAcquiredSkills[skillId] = level;
+  }
+
+  // 4. 장비 스탯 보너스 적용
+  _applyEquipmentBonuses();
+}
+```
+
+**결과 예시**:
+
+| 캐릭터 | 장비 | 결과 |
+|--------|------|------|
+| 검사 (`spinning_blade`) | 철검 (`spinning_blade`) | **회전칼 Lv.2** |
+| 검사 (`spinning_blade`) | 지팡이 (`energy_bolt`) | 회전칼 Lv.1 + 에너지볼트 Lv.1 |
+| 마법사 (`fire_burst`) | 화염검 (`fire_burst`) | **화염폭발 Lv.2** |
 
 ---
 
@@ -1410,3 +1479,315 @@ class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
 | `lib/presentation/screens/equipment_management_screen.dart` | 신규 | 로비용 장비 관리 화면 |
 | `lib/presentation/screens/character_select_screen.dart` | 수정 | baseSkillId 사용 |
 | `lib/presentation/overlays/pause_overlay.dart` | 수정 | 장비 관리 버튼 제거 |
+
+---
+
+## 10. 순찰/상점 시스템
+
+### 10.1 개요
+
+**버전**: 1.7 (Phase 2.2)
+
+**구현 목적**:
+- **순찰 시스템**: 오프라인/방치형 보상 획득 (골드, 경험치, 장비)
+- **상점 시스템**: 골드/보석으로 아이템 구매
+
+### 10.2 순찰 시스템
+
+#### 10.2.1 데이터 모델 (patrol_data.dart)
+
+```dart
+/// 순찰 지역 열거형
+enum PatrolZone {
+  forest,    // 숲
+  cave,      // 동굴
+  ruins,     // 폐허
+  volcano,   // 화산
+  abyss,     // 심연
+}
+
+/// 순찰 지역 데이터
+class PatrolZoneData {
+  final PatrolZone zone;
+  final String name;
+  final String description;
+  final int unlockLevel;       // 해금 레벨
+  final int goldPerMinute;     // 분당 골드 획득
+  final int expPerMinute;      // 분당 경험치 획득
+  final double equipDropChance; // 시간당 장비 드롭 확률
+  final List<String> possibleEquipments;  // 드롭 가능 장비 ID
+}
+
+/// 순찰 진행 데이터 (영구 저장)
+class PatrolProgressData {
+  final PatrolZone? activeZone;       // 현재 순찰 중인 지역
+  final String? patrolStartTime;      // 순찰 시작 시간 (ISO8601)
+  final String? lastCollectTime;      // 마지막 보상 수령 시간
+  final int accumulatedGold;          // 누적 골드 (수령 전)
+  final int accumulatedExp;           // 누적 경험치 (수령 전)
+  final List<String> accumulatedEquipmentIds;  // 누적 장비 ID 목록
+
+  // 메서드
+  PatrolProgressData StartPatrol(PatrolZone zone);
+  PatrolProgressData StopPatrol();
+  PatrolProgressData UpdateRewards(int gold, int exp, List<String> equipIds);
+  PatrolProgressData ClearRewards();
+  PatrolProgressData ChangeZone(PatrolZone newZone);
+  int GetMinutesSinceLastCollect();
+}
+```
+
+#### 10.2.2 순찰 지역 정의
+
+| 지역 | 해금 레벨 | 골드/분 | 경험치/분 | 장비 확률/시간 | 드롭 장비 |
+|------|----------|--------|----------|---------------|----------|
+| 숲 | Lv.1 | 5 | 2 | 5% | 철검, 가죽갑옷, 신속부츠 |
+| 동굴 | Lv.5 | 10 | 4 | 10% | 철검, 화염검, 기사갑옷 |
+| 폐허 | Lv.10 | 15 | 6 | 15% | 화염검, 기사갑옷, 치명반지 |
+| 화산 | Lv.15 | 25 | 10 | 20% | 번개지팡이, 생명펜던트, 용린갑옷 |
+| 심연 | Lv.20 | 40 | 15 | 25% | 전 장비 드롭 가능 |
+
+#### 10.2.3 ProgressSystem 순찰 기능
+
+```dart
+class ProgressSystem {
+  // 순찰 관련 getter
+  PatrolProgressData get patrol => _data.patrol;
+  bool get isPatrolling => _data.patrol.activeZone != null;
+  PatrolZone? get activePatrolZone => _data.patrol.activeZone;
+
+  // 지역 해금 여부
+  bool IsPatrolZoneUnlocked(PatrolZone zone);
+
+  // 순찰 시작/중지/변경
+  Future<void> StartPatrol(PatrolZone zone);
+  Future<void> StopPatrol();
+  Future<void> ChangePatrolZone(PatrolZone newZone);
+
+  // 보상 계산 및 수령
+  PatrolRewardResult CalculatePatrolRewards();
+  Future<PatrolRewardResult> CollectPatrolRewards();
+}
+
+/// 순찰 보상 결과
+class PatrolRewardResult {
+  final int gold;
+  final int exp;
+  final List<String> equipmentIds;
+  bool get hasRewards => gold > 0 || exp > 0 || equipmentIds.isNotEmpty;
+}
+```
+
+#### 10.2.4 PatrolScreen UI
+
+**파일**: `lib/presentation/screens/patrol_screen.dart`
+
+**구성 요소**:
+- `_buildCurrentPatrolSection`: 현재 순찰 상태 표시
+- `_buildActivePatrolCard`: 활성 순찰 카드 (경과 시간, 보상률)
+- `_buildRewardSection`: 대기 중인 보상 표시 + 수령 버튼
+- `_buildZoneList`: 순찰 지역 목록
+- `_buildZoneCard`: 지역 카드 (잠금/해금/진행 중 상태)
+- `_showZoneDetailDialog`: 지역 상세 다이얼로그
+
+**기능**:
+- 1초마다 Timer로 UI 업데이트 (누적 보상 계산)
+- 순찰 시작/중지/지역 변경
+- 보상 수령 (골드, 경험치, 장비)
+
+### 10.3 상점 시스템
+
+#### 10.3.1 데이터 모델 (shop_data.dart)
+
+```dart
+/// 상점 아이템 타입
+enum ShopItemType {
+  equipment,  // 장비
+  currency,   // 재화 (골드 ↔ 보석)
+  special,    // 특수 아이템
+}
+
+/// 결제 타입
+enum PriceType {
+  gold,   // 골드
+  gems,   // 보석
+  free,   // 무료
+}
+
+/// 상점 아이템 데이터
+class ShopItemData {
+  final String id;
+  final String name;
+  final String description;
+  final ShopItemType type;
+  final PriceType priceType;
+  final int price;
+  final String? equipmentId;   // 장비 ID (장비 타입)
+  final int? goldAmount;       // 골드량 (재화 타입)
+  final int? gemsAmount;       // 보석량 (재화 타입)
+  final int? expAmount;        // 경험치량
+  final int purchaseLimit;     // 구매 제한 (0 = 무제한)
+  final bool isDailyReset;     // 일일 초기화 여부
+}
+
+/// 상점 탭
+enum ShopTab {
+  featured,   // 추천
+  equipment,  // 장비
+  currency,   // 재화
+  special,    // 특수
+}
+
+/// 상점 구매 기록 (영구 저장)
+class ShopPurchaseRecord {
+  final String itemId;
+  final int purchaseCount;
+  final String? lastPurchaseDate;  // ISO8601
+
+  int GetTodayPurchaseCount();  // 오늘 구매 횟수
+  ShopPurchaseRecord AddPurchase();
+  ShopPurchaseRecord ResetDaily();
+}
+
+/// 상점 진행 데이터
+class ShopProgressData {
+  final Map<String, ShopPurchaseRecord> purchaseRecords;
+
+  bool CanPurchase(ShopItemData item);
+  int GetRemainingPurchases(ShopItemData item);
+  ShopProgressData RecordPurchase(String itemId);
+}
+```
+
+#### 10.3.2 상점 아이템 정의
+
+**추천 (일일 상점)**:
+
+| ID | 이름 | 가격 | 보상 | 제한 |
+|----|------|------|------|------|
+| daily_free_gold | 무료 골드 | 무료 | 골드 100 | 일일 1회 |
+| daily_gold_pack | 일일 골드 팩 | 보석 10 | 골드 500 | 일일 3회 |
+| daily_exp_boost | 경험치 부스터 | 보석 20 | 경험치 100 | 일일 2회 |
+
+**장비 상점**:
+
+| ID | 이름 | 가격 | 장비 |
+|----|------|------|------|
+| shop_starter_wand | 초보자의 지팡이 | 골드 200 | equip_starter_wand |
+| shop_iron_sword | 철 검 | 골드 300 | equip_iron_sword |
+| shop_leather_armor | 가죽 갑옷 | 골드 250 | equip_leather_armor |
+| shop_speed_boots | 신속의 부츠 | 골드 200 | equip_speed_boots |
+| shop_flame_blade | 화염 검 | 보석 50 | equip_flame_blade |
+| shop_knight_plate | 기사의 판금 갑옷 | 보석 45 | equip_knight_plate |
+| shop_critical_ring | 치명의 반지 | 보석 40 | equip_critical_ring |
+
+**재화 상점**:
+
+| ID | 이름 | 가격 | 보상 |
+|----|------|------|------|
+| gold_pack_small | 골드 팩 (소) | 보석 10 | 골드 300 |
+| gold_pack_medium | 골드 팩 (중) | 보석 25 | 골드 800 |
+| gold_pack_large | 골드 팩 (대) | 보석 50 | 골드 2000 |
+| gems_pack_starter | 보석 스타터 팩 | 골드 1000 | 보석 10 |
+
+**특수 상점**:
+
+| ID | 이름 | 가격 | 효과 |
+|----|------|------|------|
+| random_equipment | 랜덤 장비 상자 | 보석 30 | 랜덤 장비 1개 |
+| rare_equipment_box | 희귀 장비 상자 | 보석 80 | 희귀+ 등급 장비 1개 |
+
+#### 10.3.3 ProgressSystem 상점 기능
+
+```dart
+class ProgressSystem {
+  // 상점 관련 getter
+  ShopProgressData get shop => _data.shop;
+
+  // 구매 가능 여부/남은 횟수
+  bool CanPurchaseItem(ShopItemData item);
+  int GetRemainingPurchases(ShopItemData item);
+
+  // 아이템 구매
+  Future<ShopPurchaseResult> PurchaseItem(ShopItemData item);
+}
+
+/// 구매 결과
+class ShopPurchaseResult {
+  final bool success;
+  final String message;
+}
+```
+
+#### 10.3.4 ShopScreen UI
+
+**파일**: `lib/presentation/screens/shop_screen.dart`
+
+**구성 요소**:
+- `TabController`: 4개 탭 (추천/장비/재화/특수)
+- `_buildCurrencyBar`: 상단 재화 표시 (골드, 보석)
+- `_buildItemGrid`: 아이템 그리드 (GridView)
+- `_buildShopItemCard`: 개별 아이템 카드
+- `_buildPriceButton`: 가격 버튼 (무료/골드/보석)
+- `_showItemDetailDialog`: 아이템 상세 다이얼로그 + 구매
+
+### 10.4 ProgressData 확장
+
+```dart
+class ProgressData {
+  final AccountLevel accountLevel;
+  final CurrencyData currency;
+  final Map<String, ChallengeRecordData> challengeRecords;
+  final EquipmentProgressData equipment;
+  final PatrolProgressData patrol;   // ⭐ 추가
+  final ShopProgressData shop;       // ⭐ 추가
+  // ...
+
+  ProgressData UpdatePatrol(PatrolProgressData newPatrol);
+  ProgressData UpdateShop(ShopProgressData newShop);
+}
+```
+
+### 10.5 로비 UI 변경
+
+**파일**: `lib/presentation/screens/main_lobby_screen.dart`
+
+```dart
+// 순찰 / 상점 버튼 (가로 배치)
+SizedBox(
+  width: 240,
+  child: Row(
+    children: [
+      // 순찰 버튼
+      Expanded(
+        child: ElevatedButton.icon(
+          onPressed: () => Navigator.push(PatrolScreen),
+          icon: Icon(Icons.explore, color: Colors.green),
+          label: Text('순찰'),
+        ),
+      ),
+      SizedBox(width: 12),
+      // 상점 버튼
+      Expanded(
+        child: ElevatedButton.icon(
+          onPressed: () => Navigator.push(ShopScreen),
+          icon: Icon(Icons.storefront, color: Colors.orange),
+          label: Text('상점'),
+        ),
+      ),
+    ],
+  ),
+),
+```
+
+### 10.6 관련 파일 목록
+
+| 파일 | 변경 유형 | 설명 |
+|------|----------|------|
+| `lib/data/models/patrol_data.dart` | 신규 | 순찰 지역, 보상, 진행 데이터 |
+| `lib/data/models/shop_data.dart` | 신규 | 상점 아이템, 구매 기록 데이터 |
+| `lib/data/models/progress_data.dart` | 수정 | patrol, shop 필드 추가 |
+| `lib/game/systems/progress_system.dart` | 수정 | 순찰/상점 관리 메서드 추가 |
+| `lib/presentation/screens/patrol_screen.dart` | 신규 | 순찰 화면 UI |
+| `lib/presentation/screens/shop_screen.dart` | 신규 | 상점 화면 UI |
+| `lib/presentation/screens/main_lobby_screen.dart` | 수정 | 순찰/상점 버튼 추가 |

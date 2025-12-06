@@ -13,9 +13,7 @@ import 'systems/combat_system.dart';
 import 'systems/spawn_system.dart';
 import 'systems/wave_system.dart';
 import 'systems/level_system.dart';
-import 'systems/weapon_system.dart';
 import 'systems/skill_system.dart';
-import 'systems/equipment_system.dart';
 import 'systems/challenge_system.dart';
 import 'systems/progress_system.dart';
 import 'input/joystick_controller.dart';
@@ -35,9 +33,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   late SpawnSystem spawnSystem;
   late WaveSystem waveSystem;
   late LevelSystem levelSystem;
-  late WeaponSystem weaponSystem;
   late SkillSystem skillSystem;
-  late EquipmentSystem equipmentSystem;
   late ChallengeSystem challengeSystem;
 
   // 게임 상태
@@ -77,9 +73,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     spawnSystem = SpawnSystem(this);
     waveSystem = WaveSystem(this);
     levelSystem = LevelSystem(this);
-    weaponSystem = WeaponSystem(this);
     skillSystem = SkillSystem(this);
-    equipmentSystem = EquipmentSystem(this);
     challengeSystem = ChallengeSystem(this);
 
     // 배경 추가
@@ -137,7 +131,6 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     // 시스템 업데이트
     waveSystem.Update(dt);
     spawnSystem.Update(dt);
-    weaponSystem.Update(dt);
     skillSystem.Update(dt);
     challengeSystem.Update(dt);
   }
@@ -213,30 +206,37 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
 
   /// 초기 스킬 설정 (장비 무기 스킬 + 캐릭터 기본 스킬)
   void InitializeStarterSkills() {
-    // 1. 장비 무기의 스킬 추가
+    // 스킬별 레벨을 누적할 맵
+    final Map<String, int> skillLevels = {};
+
+    // 1. 장비 무기의 스킬 추가 (레벨 1)
     final weaponSkillId = ProgressSystem.instance.GetEquippedWeaponSkillId();
     if (weaponSkillId != null) {
-      skillSystem.AddSkill(weaponSkillId, level: 1);
-      levelSystem.mAcquiredSkills[weaponSkillId] = 1;
-      Logger.game('Equipped weapon skill added: $weaponSkillId');
+      skillLevels[weaponSkillId] = (skillLevels[weaponSkillId] ?? 0) + 1;
+      Logger.game('Equipped weapon skill: $weaponSkillId (+1)');
     } else {
       // 장비가 없으면 기본 무기 스킬 사용
       const defaultWeaponSkillId = 'skill_energy_bolt';
-      skillSystem.AddSkill(defaultWeaponSkillId, level: 1);
-      levelSystem.mAcquiredSkills[defaultWeaponSkillId] = 1;
-      Logger.game('Default weapon skill added: $defaultWeaponSkillId');
+      skillLevels[defaultWeaponSkillId] = (skillLevels[defaultWeaponSkillId] ?? 0) + 1;
+      Logger.game('Default weapon skill: $defaultWeaponSkillId (+1)');
     }
 
-    // 2. 캐릭터 기본 스킬 추가
+    // 2. 캐릭터 기본 스킬 추가 (레벨 1)
+    // 장비 스킬과 같아도 레벨이 합산됨
     final characterSkillId = mCharacterData.baseSkillId;
-    // 장비 무기 스킬과 캐릭터 기본 스킬이 다르면 추가
-    if (characterSkillId != weaponSkillId) {
-      skillSystem.AddSkill(characterSkillId, level: 1);
-      levelSystem.mAcquiredSkills[characterSkillId] = 1;
-      Logger.game('Character base skill added: $characterSkillId');
+    skillLevels[characterSkillId] = (skillLevels[characterSkillId] ?? 0) + 1;
+    Logger.game('Character base skill: $characterSkillId (+1)');
+
+    // 3. 누적된 레벨로 스킬 적용
+    for (final entry in skillLevels.entries) {
+      final skillId = entry.key;
+      final level = entry.value;
+      skillSystem.AddSkill(skillId, level: level);
+      levelSystem.mAcquiredSkills[skillId] = level;
+      Logger.game('Skill initialized: $skillId Lv.$level');
     }
 
-    // 3. 장비 스탯 보너스 적용 (장비 시스템에서 가져옴)
+    // 4. 장비 스탯 보너스 적용 (장비 시스템에서 가져옴)
     _applyEquipmentBonuses();
   }
 
@@ -283,9 +283,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     spawnSystem.Reset();
     waveSystem.Reset();
     levelSystem.Reset();
-    weaponSystem.Reset();
     skillSystem.Reset();
-    equipmentSystem.Reset();
     challengeSystem.Reset();
 
     // 초기 스킬 재설정

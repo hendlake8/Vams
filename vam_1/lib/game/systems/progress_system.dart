@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/utils/logger.dart';
 import '../../data/models/equipment_data.dart';
+import '../../data/models/patrol_data.dart';
 import '../../data/models/progress_data.dart';
+import '../../data/models/shop_data.dart';
 
 /// 영구 진행 시스템
 /// SharedPreferences를 통해 계정 레벨, 재화, 도전 기록을 저장/불러오기
@@ -144,14 +147,8 @@ class ProgressSystem {
 
   /// 재화 추가
   Future<void> AddCurrency({int gold = 0, int gems = 0}) async {
-    _data = ProgressData(
-      accountLevel: _data.accountLevel,
+    _data = _data.copyWith(
       currency: _data.currency.AddGold(gold).AddGems(gems),
-      challengeRecords: _data.challengeRecords,
-      equipment: _data.equipment,
-      totalPlayTime: _data.totalPlayTime,
-      totalKills: _data.totalKills,
-      totalGamesPlayed: _data.totalGamesPlayed,
     );
     await Save();
   }
@@ -163,17 +160,19 @@ class ProgressSystem {
       return false;
     }
 
-    _data = ProgressData(
-      accountLevel: _data.accountLevel,
+    _data = _data.copyWith(
       currency: _data.currency.SpendGold(gold).SpendGems(gems),
-      challengeRecords: _data.challengeRecords,
-      equipment: _data.equipment,
-      totalPlayTime: _data.totalPlayTime,
-      totalKills: _data.totalKills,
-      totalGamesPlayed: _data.totalGamesPlayed,
     );
     await Save();
     return true;
+  }
+
+  /// 경험치 추가
+  Future<void> AddExp(int exp) async {
+    _data = _data.copyWith(
+      accountLevel: _data.accountLevel.AddExp(exp),
+    );
+    await Save();
   }
 
   /// 데이터 초기화 (디버그용)
@@ -185,18 +184,12 @@ class ProgressSystem {
 
   /// 디버그용 레벨 설정
   Future<void> DebugSetLevel(int level) async {
-    _data = ProgressData(
+    _data = _data.copyWith(
       accountLevel: AccountLevel(
         level: level,
         currentExp: 0,
         totalExp: _data.accountLevel.totalExp,
       ),
-      currency: _data.currency,
-      challengeRecords: _data.challengeRecords,
-      equipment: _data.equipment,
-      totalPlayTime: _data.totalPlayTime,
-      totalKills: _data.totalKills,
-      totalGamesPlayed: _data.totalGamesPlayed,
     );
     await Save();
     Logger.game('Debug: Level set to $level');
@@ -285,6 +278,249 @@ class ProgressSystem {
     await Save();
     Logger.game('Starter equipment initialized');
   }
+
+  // ==================== 순찰 관리 ====================
+
+  /// 순찰 데이터 getter
+  PatrolProgressData get patrol => _data.patrol;
+
+  /// 순찰 중인지 여부
+  bool get isPatrolling => _data.patrol.isPatrolling;
+
+  /// 현재 순찰 지역
+  PatrolZone? get activePatrolZone => _data.patrol.activeZone;
+
+  /// 순찰 지역 해금 여부
+  bool IsPatrolZoneUnlocked(PatrolZone zone) {
+    final zoneData = DefaultPatrolZones.GetByZone(zone);
+    if (zoneData == null) return false;
+    return playerLevel >= zoneData.unlockLevel;
+  }
+
+  /// 순찰 시작
+  Future<void> StartPatrol(PatrolZone zone) async {
+    if (!IsPatrolZoneUnlocked(zone)) return;
+
+    _data = _data.UpdatePatrol(_data.patrol.StartPatrol(zone));
+    await Save();
+    Logger.game('Patrol started: ${zone.name}');
+  }
+
+  /// 순찰 중지
+  Future<void> StopPatrol() async {
+    _data = _data.UpdatePatrol(_data.patrol.StopPatrol());
+    await Save();
+    Logger.game('Patrol stopped');
+  }
+
+  /// 순찰 지역 변경
+  Future<void> ChangePatrolZone(PatrolZone zone) async {
+    if (!IsPatrolZoneUnlocked(zone)) return;
+
+    _data = _data.UpdatePatrol(_data.patrol.ChangeZone(zone));
+    await Save();
+    Logger.game('Patrol zone changed: ${zone.name}');
+  }
+
+  /// 순찰 보상 계산 (마지막 수령 이후)
+  PatrolRewardResult CalculatePatrolRewards() {
+    if (!isPatrolling) {
+      return const PatrolRewardResult(gold: 0, exp: 0, equipmentIds: []);
+    }
+
+    final zoneData = DefaultPatrolZones.GetByZone(_data.patrol.activeZone!);
+    if (zoneData == null) {
+      return const PatrolRewardResult(gold: 0, exp: 0, equipmentIds: []);
+    }
+
+    final minutes = _data.patrol.GetMinutesSinceLastCollect();
+    final gold = minutes * zoneData.goldPerMinute;
+    final exp = minutes * zoneData.expPerMinute;
+
+    // 장비 드롭 계산 (시간당 확률)
+    final hours = minutes / 60.0;
+    final dropCount = (hours * zoneData.equipDropChance).floor();
+    final random = Random();
+
+    List<String> droppedEquipments = [];
+    for (int i = 0; i < dropCount; i++) {
+      if (zoneData.possibleEquipments.isNotEmpty) {
+        final randomIndex = random.nextInt(zoneData.possibleEquipments.length);
+        droppedEquipments.add(zoneData.possibleEquipments[randomIndex]);
+      }
+    }
+
+    // 추가 랜덤 드롭 체크 (남은 확률)
+    final remainingChance = (hours * zoneData.equipDropChance) - dropCount;
+    if (random.nextDouble() < remainingChance && zoneData.possibleEquipments.isNotEmpty) {
+      final randomIndex = random.nextInt(zoneData.possibleEquipments.length);
+      droppedEquipments.add(zoneData.possibleEquipments[randomIndex]);
+    }
+
+    return PatrolRewardResult(
+      gold: gold,
+      exp: exp,
+      equipmentIds: droppedEquipments,
+      minutes: minutes,
+    );
+  }
+
+  /// 순찰 보상 수령
+  Future<PatrolRewardResult> CollectPatrolRewards() async {
+    final rewards = CalculatePatrolRewards();
+
+    if (rewards.gold > 0 || rewards.exp > 0) {
+      // 골드와 경험치 추가
+      _data = _data.copyWith(
+        currency: _data.currency.AddGold(rewards.gold),
+        accountLevel: _data.accountLevel.AddExp(rewards.exp),
+      );
+    }
+
+    // 장비 추가
+    for (final equipId in rewards.equipmentIds) {
+      _data = _data.UpdateEquipment(_data.equipment.AddEquipment(equipId));
+    }
+
+    // 보상 수령 시간 업데이트
+    _data = _data.UpdatePatrol(_data.patrol.ClearRewards());
+
+    await Save();
+    Logger.game('Patrol rewards collected: ${rewards.gold} gold, ${rewards.exp} exp, ${rewards.equipmentIds.length} equipment(s)');
+
+    return rewards;
+  }
+
+  // ==================== 상점 관리 ====================
+
+  /// 상점 데이터 getter
+  ShopProgressData get shop => _data.shop;
+
+  /// 아이템 구매 가능 여부
+  bool CanPurchaseItem(ShopItemData item) {
+    // 구매 횟수 제한 체크
+    if (!_data.shop.CanPurchase(item)) return false;
+
+    // 재화 체크
+    switch (item.priceType) {
+      case PriceType.gold:
+        return _data.currency.CanAffordGold(item.price);
+      case PriceType.gems:
+        return _data.currency.CanAffordGems(item.price);
+      case PriceType.free:
+        return true;
+    }
+  }
+
+  /// 남은 구매 횟수
+  int GetRemainingPurchases(ShopItemData item) {
+    return _data.shop.GetRemainingPurchases(item);
+  }
+
+  /// 아이템 구매
+  Future<ShopPurchaseResult> PurchaseItem(ShopItemData item) async {
+    // 구매 가능 여부 체크
+    if (!CanPurchaseItem(item)) {
+      return ShopPurchaseResult(
+        success: false,
+        message: _data.shop.CanPurchase(item) ? '재화가 부족합니다.' : '구매 한도에 도달했습니다.',
+      );
+    }
+
+    // 재화 차감
+    switch (item.priceType) {
+      case PriceType.gold:
+        _data = _data.copyWith(
+          currency: _data.currency.SpendGold(item.price),
+        );
+        break;
+      case PriceType.gems:
+        _data = _data.copyWith(
+          currency: _data.currency.SpendGems(item.price),
+        );
+        break;
+      case PriceType.free:
+        break;
+    }
+
+    // 아이템 효과 적용
+    String message = '';
+    switch (item.type) {
+      case ShopItemType.equipment:
+        if (item.equipmentId != null) {
+          _data = _data.UpdateEquipment(_data.equipment.AddEquipment(item.equipmentId!));
+          message = '${item.name}을(를) 획득했습니다!';
+        }
+        break;
+
+      case ShopItemType.currency:
+        if (item.goldAmount != null && item.goldAmount! > 0) {
+          _data = _data.copyWith(
+            currency: _data.currency.AddGold(item.goldAmount!),
+          );
+          message = '골드 ${item.goldAmount}을(를) 획득했습니다!';
+        }
+        if (item.gemsAmount != null && item.gemsAmount! > 0) {
+          _data = _data.copyWith(
+            currency: _data.currency.AddGems(item.gemsAmount!),
+          );
+          message = '보석 ${item.gemsAmount}개를 획득했습니다!';
+        }
+        break;
+
+      case ShopItemType.special:
+        if (item.expAmount != null && item.expAmount! > 0) {
+          _data = _data.copyWith(
+            accountLevel: _data.accountLevel.AddExp(item.expAmount!),
+          );
+          message = '경험치 ${item.expAmount}을(를) 획득했습니다!';
+        }
+        // 랜덤 장비 상자 처리
+        if (item.id == 'random_equipment') {
+          final result = _getRandomEquipment(false);
+          _data = _data.UpdateEquipment(_data.equipment.AddEquipment(result));
+          final equipData = DefaultEquipments.GetById(result);
+          message = '${equipData?.name ?? '장비'}을(를) 획득했습니다!';
+        }
+        if (item.id == 'rare_equipment_box') {
+          final result = _getRandomEquipment(true);
+          _data = _data.UpdateEquipment(_data.equipment.AddEquipment(result));
+          final equipData = DefaultEquipments.GetById(result);
+          message = '${equipData?.name ?? '희귀 장비'}을(를) 획득했습니다!';
+        }
+        break;
+    }
+
+    // 구매 기록 저장
+    _data = _data.UpdateShop(_data.shop.RecordPurchase(item.id));
+
+    await Save();
+    Logger.game('Item purchased: ${item.id}');
+
+    return ShopPurchaseResult(success: true, message: message);
+  }
+
+  /// 랜덤 장비 획득
+  String _getRandomEquipment(bool rareOrHigher) {
+    final random = Random();
+    List<EquipmentData> candidates;
+
+    if (rareOrHigher) {
+      candidates = DefaultEquipments.all.where((e) =>
+        e.rarity == EquipmentRarity.rare ||
+        e.rarity == EquipmentRarity.epic ||
+        e.rarity == EquipmentRarity.legendary
+      ).toList();
+    } else {
+      candidates = DefaultEquipments.all;
+    }
+
+    if (candidates.isEmpty) {
+      return DefaultEquipments.all.first.id;
+    }
+
+    return candidates[random.nextInt(candidates.length)].id;
+  }
 }
 
 /// 게임 종료 결과 (결과창 표시용)
@@ -305,5 +541,33 @@ class GameEndResult {
     required this.leveledUp,
     required this.currentExp,
     required this.requiredExp,
+  });
+}
+
+/// 순찰 보상 결과
+class PatrolRewardResult {
+  final int gold;
+  final int exp;
+  final List<String> equipmentIds;
+  final int minutes;
+
+  const PatrolRewardResult({
+    required this.gold,
+    required this.exp,
+    required this.equipmentIds,
+    this.minutes = 0,
+  });
+
+  bool get hasRewards => gold > 0 || exp > 0 || equipmentIds.isNotEmpty;
+}
+
+/// 상점 구매 결과
+class ShopPurchaseResult {
+  final bool success;
+  final String message;
+
+  const ShopPurchaseResult({
+    required this.success,
+    required this.message,
   });
 }

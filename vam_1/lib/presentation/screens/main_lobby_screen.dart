@@ -9,6 +9,8 @@ import '../../game/vam_game.dart';
 import 'character_select_screen.dart';
 import 'challenge_screen.dart';
 import 'equipment_management_screen.dart';
+import 'patrol_screen.dart';
+import 'shop_screen.dart';
 
 /// 메인 로비 화면
 class MainLobbyScreen extends StatefulWidget {
@@ -207,7 +209,87 @@ class _MainLobbyScreenState extends State<MainLobbyScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 64),
+                    const SizedBox(height: 16),
+
+                    // 순찰 / 상점 버튼 (가로 배치)
+                    SizedBox(
+                      width: 240,
+                      child: Row(
+                        children: [
+                          // 순찰 버튼
+                          Expanded(
+                            child: SizedBox(
+                              height: 50,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const PatrolScreen(),
+                                    ),
+                                  ).then((_) {
+                                    setState(() {});
+                                  });
+                                },
+                                icon: const Icon(Icons.explore, color: Colors.green, size: 18),
+                                label: const Text(
+                                  '순찰',
+                                  style: TextStyle(
+                                    fontSize: DesignConstants.FONT_SIZE_MEDIUM,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: DesignConstants.COLOR_SURFACE,
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(DesignConstants.CORNER_RADIUS),
+                                    side: const BorderSide(color: Colors.green, width: 2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(width: 12),
+
+                          // 상점 버튼
+                          Expanded(
+                            child: SizedBox(
+                              height: 50,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  Navigator.of(context).push(
+                                    MaterialPageRoute(
+                                      builder: (context) => const ShopScreen(),
+                                    ),
+                                  ).then((_) {
+                                    setState(() {});
+                                  });
+                                },
+                                icon: const Icon(Icons.storefront, color: Colors.orange, size: 18),
+                                label: const Text(
+                                  '상점',
+                                  style: TextStyle(
+                                    fontSize: DesignConstants.FONT_SIZE_MEDIUM,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: DesignConstants.COLOR_SURFACE,
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(DesignConstants.CORNER_RADIUS),
+                                    side: const BorderSide(color: Colors.orange, width: 2),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 48),
 
                     // 안내 텍스트
                     const Text(
