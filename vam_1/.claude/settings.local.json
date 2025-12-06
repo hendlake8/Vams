@@ -22,7 +22,11 @@
       "Bash(if [ -d \"D:/GitForkClone/Vams/vam_1/Report\" ])",
       "Bash(then ls -la \"D:/GitForkClone/Vams/vam_1/Report/\")",
       "Bash(else echo \"Report 폴더 없음\")",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(flutter test --help:*)",
+      "mcp__serena__list_memories",
+      "mcp__serena__activate_project",
+      "mcp__serena__write_memory"
     ],
     "deny": [],
     "ask": []

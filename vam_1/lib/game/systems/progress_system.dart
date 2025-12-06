@@ -43,7 +43,11 @@ class ProgressSystem {
       if (jsonString != null) {
         final json = jsonDecode(jsonString) as Map<String, dynamic>;
         _data = ProgressData.FromJson(json);
-        Logger.game('Progress loaded: Level ${_data.accountLevel.level}, Gold ${_data.currency.gold}');
+        Logger.game('Progress loaded: Level ${_data.accountLevel.level}, Gold ${_data.currency.gold}, Gems ${_data.currency.gems}');
+        Logger.game('Challenge records loaded: ${_data.challengeRecords.keys.toList()}');
+        for (final entry in _data.challengeRecords.entries) {
+          Logger.game('  ${entry.key}: isCleared=${entry.value.isCleared}, bestWave=${entry.value.bestWave}');
+        }
       } else {
         _data = const ProgressData();
         Logger.game('No saved progress found, starting fresh');
@@ -120,6 +124,7 @@ class ProgressSystem {
     // 도전 기록 업데이트
     if (challengeId != null) {
       final existingRecord = _data.challengeRecords[challengeId];
+      Logger.game('Challenge record before update: ${existingRecord?.isCleared ?? "null"}');
       final newRecord = (existingRecord ?? ChallengeRecordData(challengeId: challengeId))
           .UpdateRecord(
         cleared: isVictory,
@@ -127,10 +132,13 @@ class ProgressSystem {
         kills: kills,
         time: playTime,
       );
+      Logger.game('Challenge record after UpdateRecord: isCleared=${newRecord.isCleared}');
       _data = _data.UpdateChallengeRecord(newRecord);
+      Logger.game('Challenge record in _data: ${_data.challengeRecords[challengeId]?.isCleared}');
     }
 
     await Save();
+    Logger.game('Data saved. Verifying: challengeRecords[${challengeId ?? "null"}]?.isCleared = ${_data.challengeRecords[challengeId ?? '']?.isCleared}');
 
     Logger.game('Game end processed: +$expGained exp, +$goldGained gold');
   }

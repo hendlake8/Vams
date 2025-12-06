@@ -22,6 +22,9 @@ class ChallengeSystem {
   double mWaveTimer = 0;
   static const double WAVE_INTERVAL = 30.0;  // 30초마다 웨이브 증가
 
+  // 클리어/실패 처리 중 플래그 (중복 처리 방지)
+  bool mIsProcessingResult = false;
+
   ChallengeSystem(this.mGame);
 
   /// 플레이어 레벨 (ProgressSystem에서 가져옴)
@@ -29,15 +32,21 @@ class ChallengeSystem {
 
   /// 도전 시작
   bool StartChallenge(String challengeId) {
+    Logger.game('StartChallenge called with id: $challengeId');
+
     final challenge = DefaultChallenges.GetById(challengeId);
     if (challenge == null) {
-      Logger.game('Challenge not found: $challengeId');
+      Logger.game('ERROR: Challenge not found: $challengeId');
       return false;
     }
 
     // 해금 조건 확인
     if (!IsUnlocked(challenge)) {
-      Logger.game('Challenge not unlocked: ${challenge.name}');
+      Logger.game('ERROR: Challenge not unlocked: ${challenge.name}');
+      Logger.game('  - playerLevel: $playerLevel, required: ${challenge.unlockLevel}');
+      if (challenge.prerequisiteId != null) {
+        Logger.game('  - prerequisite: ${challenge.prerequisiteId}, cleared: ${ProgressSystem.instance.IsChallengeCleared(challenge.prerequisiteId!)}');
+      }
       return false;
     }
 
@@ -48,11 +57,14 @@ class ChallengeSystem {
     mElapsedTime = 0;
     mBossKillCount = 0;
     mWaveTimer = 0;
+    mIsProcessingResult = false;
 
     // 게임 변경자 적용
     _applyModifier(challenge.modifier);
 
-    Logger.game('Challenge started: ${challenge.name}');
+    Logger.game('Challenge started successfully: ${challenge.name}');
+    Logger.game('  - type: ${challenge.type}, targetWave: ${challenge.condition.targetWave}');
+    Logger.game('  - mIsInChallengeMode: $mIsInChallengeMode, mCurrentWave: $mCurrentWave');
     return true;
   }
 
@@ -75,13 +87,19 @@ class ChallengeSystem {
       }
     }
 
+    // 이미 결과 처리 중이면 스킵
+    if (mIsProcessingResult) return;
+
     // 클리어 조건 체크
     if (_checkClearCondition()) {
+      mIsProcessingResult = true;
       _onChallengeCleared();
+      return;  // 클리어 처리 시작 후 즉시 반환
     }
 
     // 타임어택/서바이벌 시간 초과 체크
     if (_checkTimeOut()) {
+      mIsProcessingResult = true;
       _onChallengeFailed();
     }
   }
@@ -138,33 +156,55 @@ class ChallengeSystem {
   Future<void> _onChallengeCleared() async {
     if (mCurrentChallenge == null) return;
 
-    Logger.game('Challenge cleared: ${mCurrentChallenge!.name}');
+    // 비동기 작업 전에 필요한 데이터를 로컬 변수에 저장
+    final challenge = mCurrentChallenge!;
+    final challengeId = challenge.id;
+    final challengeName = challenge.name;
+    final rewards = challenge.rewards;
 
-    // 보상 지급 (async 처리)
-    await _grantRewards();
+    Logger.game('Challenge cleared: $challengeName (id: $challengeId)');
 
-    // ProgressSystem에 기록 저장
-    _saveProgress(cleared: true);
+    // ProgressSystem에 기록 저장 (먼저 호출하여 기본 통계 저장)
+    await _saveProgressWithId(challengeId: challengeId, cleared: true);
+
+    // 보상 지급 (로컬 변수 사용)
+    await _grantRewardsFrom(rewards);
 
     // 도전 종료
     mGame.Victory();
+
+    Logger.game('Challenge $challengeId clear saved. isCleared: ${ProgressSystem.instance.IsChallengeCleared(challengeId)}');
   }
 
   /// 도전 실패
-  void _onChallengeFailed() {
+  Future<void> _onChallengeFailed() async {
     if (mCurrentChallenge == null) return;
 
     Logger.game('Challenge failed: ${mCurrentChallenge!.name}');
 
     // ProgressSystem에 기록 저장 (클리어 아님)
-    _saveProgress(cleared: false);
+    await _saveProgress(cleared: false);
 
     mGame.GameOver();
   }
 
-  /// ProgressSystem에 진행 저장
-  void _saveProgress({required bool cleared}) {
-    ProgressSystem.instance.OnGameEnd(
+  /// ProgressSystem에 진행 저장 (challengeId를 명시적으로 전달)
+  Future<void> _saveProgressWithId({required String challengeId, required bool cleared}) async {
+    Logger.game('Saving challenge progress: challengeId=$challengeId, cleared=$cleared, wave=$mCurrentWave, kills=$mKillCount');
+    await ProgressSystem.instance.OnGameEnd(
+      playTime: mElapsedTime.toInt(),
+      kills: mKillCount,
+      isVictory: cleared,
+      challengeId: challengeId,
+      wave: mCurrentWave,
+      bossKills: mBossKillCount,
+    );
+    Logger.game('Challenge progress saved');
+  }
+
+  /// ProgressSystem에 진행 저장 (실패 시 - mCurrentChallenge 사용)
+  Future<void> _saveProgress({required bool cleared}) async {
+    await ProgressSystem.instance.OnGameEnd(
       playTime: mElapsedTime.toInt(),
       kills: mKillCount,
       isVictory: cleared,
@@ -174,12 +214,14 @@ class ChallengeSystem {
     );
   }
 
-  /// 보상 지급
-  Future<void> _grantRewards() async {
+  /// 보상 지급 (보상 목록을 인자로 받음 - 안전한 버전)
+  Future<void> _grantRewardsFrom(List<ChallengeReward> rewards) async {
     int totalGold = 0;
     int totalGems = 0;
 
-    for (final reward in mCurrentChallenge!.rewards) {
+    Logger.game('Processing ${rewards.length} rewards...');
+
+    for (final reward in rewards) {
       switch (reward.type) {
         case ChallengeRewardType.gold:
           totalGold += reward.amount;
@@ -209,9 +251,12 @@ class ChallengeSystem {
     }
 
     // 재화 지급
+    Logger.game('Granting currency: gold=$totalGold, gems=$totalGems');
     if (totalGold > 0 || totalGems > 0) {
+      final beforeGems = ProgressSystem.instance.gems;
       await ProgressSystem.instance.AddCurrency(gold: totalGold, gems: totalGems);
-      Logger.game('Currency granted: $totalGold gold, $totalGems gems');
+      final afterGems = ProgressSystem.instance.gems;
+      Logger.game('Currency granted: $totalGold gold, $totalGems gems (gems: $beforeGems -> $afterGems)');
     }
   }
 
@@ -311,6 +356,7 @@ class ChallengeSystem {
   void EndChallenge() {
     mCurrentChallenge = null;
     mIsInChallengeMode = false;
+    mIsProcessingResult = false;
     Logger.game('Challenge ended');
   }
 
@@ -321,6 +367,7 @@ class ChallengeSystem {
     mElapsedTime = 0;
     mBossKillCount = 0;
     mWaveTimer = 0;
+    mIsProcessingResult = false;
   }
 
   // Getters

@@ -39,7 +39,15 @@ class _GameScreenState extends State<GameScreen> {
     // 도전 모드 시작
     if (widget.challengeId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _game.challengeSystem.StartChallenge(widget.challengeId!);
+        final success = _game.challengeSystem.StartChallenge(widget.challengeId!);
+        if (!success) {
+          debugPrint('WARNING: Failed to start challenge: ${widget.challengeId}');
+          debugPrint('  - isInChallengeMode: ${_game.challengeSystem.isInChallengeMode}');
+          debugPrint('  - currentChallenge: ${_game.challengeSystem.currentChallenge?.name}');
+        } else {
+          debugPrint('Challenge started successfully: ${widget.challengeId}');
+          debugPrint('  - isInChallengeMode: ${_game.challengeSystem.isInChallengeMode}');
+        }
       });
     }
   }
