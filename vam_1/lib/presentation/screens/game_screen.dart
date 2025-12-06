@@ -9,7 +9,12 @@ import '../overlays/game_over_overlay.dart';
 
 /// 게임 화면
 class GameScreen extends StatefulWidget {
-  const GameScreen({super.key});
+  final String? characterId;
+
+  const GameScreen({
+    super.key,
+    this.characterId,
+  });
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -21,7 +26,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   void initState() {
     super.initState();
-    _game = VamGame();
+    _game = VamGame(characterId: widget.characterId);
 
     // 콜백 설정
     _game.onPauseRequested = _showPauseOverlay;

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../core/utils/screen_utils.dart';
 import '../core/utils/logger.dart';
+import '../data/models/character_data.dart';
 import 'components/actors/player.dart';
 import 'components/tiled_background.dart';
 import 'systems/combat_system.dart';
@@ -17,10 +18,13 @@ import 'input/joystick_controller.dart';
 
 /// 메인 게임 클래스
 class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
+  // 선택된 캐릭터
+  final String? mCharacterId;
+  late CharacterData mCharacterData;
   // 게임 컴포넌트
   late Player player;
   late TiledBackground background;
-  late JoystickController joystick;
+  late FloatingJoystickController joystick;
 
   // 게임 시스템
   late CombatSystem combatSystem;
@@ -42,11 +46,18 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   VoidCallback? onGameOver;
   VoidCallback? onVictory;
 
+  VamGame({String? characterId}) : mCharacterId = characterId;
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
 
     Logger.game('VamGame onLoad started');
+
+    // 캐릭터 데이터 로드
+    mCharacterData = DefaultCharacters.GetById(mCharacterId ?? 'char_commando')
+        ?? DefaultCharacters.COMMANDO;
+    Logger.game('Selected character: ${mCharacterData.name}');
 
     // 카메라 설정
     camera.viewfinder.visibleGameSize = Vector2(
@@ -63,9 +74,6 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     weaponSystem = WeaponSystem(this);
     skillSystem = SkillSystem(this);
 
-    // 기본 무기 장착 (초보자의 지팡이 → 에너지 볼트 스킬 자동 활성화)
-    weaponSystem.EquipWeapon('weapon_starter_wand', level: 1);
-
     // 배경 추가
     background = TiledBackground();
     world.add(background);
@@ -77,11 +85,35 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     // 카메라가 플레이어 따라다니게
     camera.follow(player);
 
-    // 조이스틱 생성
-    joystick = JoystickController();
+    // 플로팅 조이스틱 생성
+    joystick = FloatingJoystickController();
     camera.viewport.add(joystick);
 
     Logger.game('VamGame onLoad completed');
+  }
+
+  @override
+  void onDragStart(DragStartEvent event) {
+    super.onDragStart(event);
+    joystick.OnDragStart(event.localPosition);
+  }
+
+  @override
+  void onDragUpdate(DragUpdateEvent event) {
+    super.onDragUpdate(event);
+    joystick.OnDragUpdate(event.localStartPosition + event.localDelta);
+  }
+
+  @override
+  void onDragEnd(DragEndEvent event) {
+    super.onDragEnd(event);
+    joystick.OnDragEnd();
+  }
+
+  @override
+  void onDragCancel(DragCancelEvent event) {
+    super.onDragCancel(event);
+    joystick.OnDragEnd();
   }
 
   @override

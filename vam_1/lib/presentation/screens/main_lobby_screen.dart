@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/design_constants.dart';
 import '../../core/constants/game_constants.dart';
-import 'game_screen.dart';
+import 'character_select_screen.dart';
 
 /// 메인 로비 화면
 class MainLobbyScreen extends StatelessWidget {
@@ -49,7 +49,7 @@ class MainLobbyScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const GameScreen(),
+                        builder: (context) => const CharacterSelectScreen(),
                       ),
                     );
                   },

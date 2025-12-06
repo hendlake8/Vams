@@ -38,28 +38,25 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
   Future<void> onLoad() async {
     await super.onLoad();
 
-    // 기본 스탯 설정
-    mBaseStats = const ActorStats(
-      hp: GameConstants.DEFAULT_PLAYER_HP,
-      atk: GameConstants.DEFAULT_PLAYER_ATK,
-      def: GameConstants.DEFAULT_PLAYER_DEF,
-      spd: GameConstants.DEFAULT_PLAYER_SPD,
-      critRate: GameConstants.DEFAULT_PLAYER_CRIT_RATE,
-      critDmg: GameConstants.DEFAULT_PLAYER_CRIT_DMG,
-    );
+    // 캐릭터 데이터에서 스탯 로드
+    final characterData = game.mCharacterData;
+    mBaseStats = characterData.baseStats;
 
     mMaxHp = mBaseStats.hp;
     mCurrentHp = mMaxHp;
 
-    // 임시 시각적 표현 (사각형)
+    // 캐릭터 색상으로 시각적 표현
     mBody = RectangleComponent(
       size: size,
-      paint: Paint()..color = Colors.blue,
+      paint: Paint()..color = characterData.color,
     );
     add(mBody);
 
     // 히트박스
     add(CircleHitbox(radius: 20));
+
+    // 캐릭터 기본 무기 장착
+    game.weaponSystem.EquipWeapon(characterData.baseWeaponId, level: 1);
 
     Logger.game('Player loaded - HP: $mCurrentHp/$mMaxHp');
   }
@@ -73,11 +70,12 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
       mInvincibilityTimer -= dt;
 
       // 무적 시 깜빡임 효과
+      final characterColor = game.mCharacterData.color;
       mBody.paint.color = (mInvincibilityTimer * 10).floor() % 2 == 0
-          ? Colors.blue
-          : Colors.blue.withValues(alpha: 0.3);
+          ? characterColor
+          : characterColor.withValues(alpha: 0.3);
     } else {
-      mBody.paint.color = Colors.blue;
+      mBody.paint.color = game.mCharacterData.color;
     }
 
     // 스킬 업데이트
@@ -175,7 +173,7 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
     mIsAlive = true;
     mInvincibilityTimer = 0;
     mSkills.clear();
-    mBody.paint.color = Colors.blue;
+    mBody.paint.color = game.mCharacterData.color;
   }
 
   // Getters

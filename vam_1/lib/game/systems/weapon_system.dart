@@ -55,8 +55,8 @@ class WeaponSystem {
   void Reset() {
     mEquippedWeapon = null;
     mWeaponLevel = 1;
-    // 기본 무기 장착
-    EquipWeapon('weapon_starter_wand', level: 1);
+    // 캐릭터 기본 무기 재장착
+    EquipWeapon(mGame.mCharacterData.baseWeaponId, level: 1);
   }
 
   /// 장착된 무기 정보
