@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../core/utils/screen_utils.dart';
 import '../core/utils/logger.dart';
 import '../data/models/character_data.dart';
+import '../data/models/equipment_data.dart';
 import 'components/actors/player.dart';
 import 'components/tiled_background.dart';
 import 'systems/combat_system.dart';
@@ -210,6 +211,66 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     );
   }
 
+  /// 초기 스킬 설정 (장비 무기 스킬 + 캐릭터 기본 스킬)
+  void InitializeStarterSkills() {
+    // 1. 장비 무기의 스킬 추가
+    final weaponSkillId = ProgressSystem.instance.GetEquippedWeaponSkillId();
+    if (weaponSkillId != null) {
+      skillSystem.AddSkill(weaponSkillId, level: 1);
+      levelSystem.mAcquiredSkills[weaponSkillId] = 1;
+      Logger.game('Equipped weapon skill added: $weaponSkillId');
+    } else {
+      // 장비가 없으면 기본 무기 스킬 사용
+      const defaultWeaponSkillId = 'skill_energy_bolt';
+      skillSystem.AddSkill(defaultWeaponSkillId, level: 1);
+      levelSystem.mAcquiredSkills[defaultWeaponSkillId] = 1;
+      Logger.game('Default weapon skill added: $defaultWeaponSkillId');
+    }
+
+    // 2. 캐릭터 기본 스킬 추가
+    final characterSkillId = mCharacterData.baseSkillId;
+    // 장비 무기 스킬과 캐릭터 기본 스킬이 다르면 추가
+    if (characterSkillId != weaponSkillId) {
+      skillSystem.AddSkill(characterSkillId, level: 1);
+      levelSystem.mAcquiredSkills[characterSkillId] = 1;
+      Logger.game('Character base skill added: $characterSkillId');
+    }
+
+    // 3. 장비 스탯 보너스 적용 (장비 시스템에서 가져옴)
+    _applyEquipmentBonuses();
+  }
+
+  /// 장비 스탯 보너스 적용
+  void _applyEquipmentBonuses() {
+    final progress = ProgressSystem.instance;
+
+    // 각 슬롯의 장착된 장비에서 스탯 보너스 계산
+    for (final slot in EquipmentSlot.values) {
+      final instance = progress.GetEquippedItem(slot);
+      if (instance == null) continue;
+
+      final equipmentData = DefaultEquipments.GetById(instance.equipmentId);
+      if (equipmentData == null) continue;
+
+      // 레벨에 따른 스탯 보너스 적용
+      final levelMultiplier = 1.0 + (instance.level - 1) * 0.1;
+      final stats = equipmentData.stats;
+
+      // 플레이어 스탯에 보너스 적용
+      player.mBaseStats = player.mBaseStats.copyWith(
+        hp: player.mBaseStats.hp + (stats.hp * levelMultiplier).round(),
+        atk: player.mBaseStats.atk + (stats.atk * levelMultiplier).round(),
+        def: player.mBaseStats.def + (stats.def * levelMultiplier).round(),
+      );
+    }
+
+    // HP 재계산
+    player.mMaxHp = player.mBaseStats.hp;
+    player.mCurrentHp = player.mMaxHp;
+
+    Logger.game('Equipment bonuses applied');
+  }
+
   /// 게임 재시작
   void Restart() {
     mElapsedTime = 0;
@@ -226,6 +287,9 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     skillSystem.Reset();
     equipmentSystem.Reset();
     challengeSystem.Reset();
+
+    // 초기 스킬 재설정
+    InitializeStarterSkills();
 
     resumeEngine();
     Logger.game('Game Restarted');

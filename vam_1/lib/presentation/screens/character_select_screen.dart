@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/design_constants.dart';
 import '../../data/models/character_data.dart';
-import '../../data/models/weapon_data.dart';
 import '../../data/models/skill_data.dart';
 import 'game_screen.dart';
 
@@ -104,10 +103,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
 
   Widget _buildCharacterDetail() {
     final character = mSelectedCharacter;
-    final weapon = DefaultWeapons.GetById(character.baseWeaponId);
-    final skill = weapon != null
-        ? DefaultSkills.GetById(weapon.baseSkillId)
-        : null;
+    final skill = DefaultSkills.GetById(character.baseSkillId);
 
     return Container(
       margin: const EdgeInsets.all(16),
@@ -207,9 +203,9 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
 
           const Divider(color: Colors.white24, height: 32),
 
-          // 기본 무기/스킬
+          // 기본 스킬
           Text(
-            '기본 무기',
+            '기본 스킬',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.8),
               fontSize: 16,
@@ -217,8 +213,8 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          if (weapon != null && skill != null)
-            _buildWeaponInfo(weapon, skill),
+          if (skill != null)
+            _buildSkillInfo(skill),
         ],
       ),
     );
@@ -256,7 +252,7 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
     );
   }
 
-  Widget _buildWeaponInfo(WeaponData weapon, SkillData skill) {
+  Widget _buildSkillInfo(SkillData skill) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -284,20 +280,22 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  weapon.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  skill.name,
+                  style: TextStyle(
+                    color: skill.color,
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '스킬: ${skill.name}',
-                  style: TextStyle(
-                    color: skill.color,
+                  skill.description,
+                  style: const TextStyle(
+                    color: Colors.white70,
                     fontSize: 13,
                   ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),

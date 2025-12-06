@@ -1,5 +1,7 @@
 /// 영구 진행 데이터 모델
-/// 계정 레벨, 누적 경험치, 재화, 도전 기록 등을 관리
+/// 계정 레벨, 누적 경험치, 재화, 도전 기록, 장비 등을 관리
+
+import 'equipment_data.dart';
 
 /// 계정 레벨 데이터
 class AccountLevel {
@@ -172,11 +174,209 @@ class ChallengeRecordData {
   }
 }
 
+/// 장비 인스턴스 데이터 (저장용)
+class EquipmentInstanceData {
+  final String instanceId;
+  final String equipmentId;  // EquipmentData.id
+  final int level;
+  final bool isEquipped;
+
+  const EquipmentInstanceData({
+    required this.instanceId,
+    required this.equipmentId,
+    this.level = 1,
+    this.isEquipped = false,
+  });
+
+  Map<String, dynamic> ToJson() {
+    return {
+      'instanceId': instanceId,
+      'equipmentId': equipmentId,
+      'level': level,
+      'isEquipped': isEquipped,
+    };
+  }
+
+  factory EquipmentInstanceData.FromJson(Map<String, dynamic> json) {
+    return EquipmentInstanceData(
+      instanceId: json['instanceId'] as String,
+      equipmentId: json['equipmentId'] as String,
+      level: json['level'] as int? ?? 1,
+      isEquipped: json['isEquipped'] as bool? ?? false,
+    );
+  }
+
+  EquipmentInstanceData CopyWith({
+    int? level,
+    bool? isEquipped,
+  }) {
+    return EquipmentInstanceData(
+      instanceId: instanceId,
+      equipmentId: equipmentId,
+      level: level ?? this.level,
+      isEquipped: isEquipped ?? this.isEquipped,
+    );
+  }
+}
+
+/// 장비 데이터 (영구 저장)
+class EquipmentProgressData {
+  final List<EquipmentInstanceData> inventory;
+  final Map<String, String?> equippedIds;  // slot name → instanceId
+  final int nextInstanceId;
+
+  const EquipmentProgressData({
+    this.inventory = const [],
+    this.equippedIds = const {},
+    this.nextInstanceId = 1,
+  });
+
+  Map<String, dynamic> ToJson() {
+    return {
+      'inventory': inventory.map((e) => e.ToJson()).toList(),
+      'equippedIds': equippedIds,
+      'nextInstanceId': nextInstanceId,
+    };
+  }
+
+  factory EquipmentProgressData.FromJson(Map<String, dynamic> json) {
+    final inventoryJson = json['inventory'] as List<dynamic>? ?? [];
+    final inventory = inventoryJson
+        .map((e) => EquipmentInstanceData.FromJson(e as Map<String, dynamic>))
+        .toList();
+
+    final equippedJson = json['equippedIds'] as Map<String, dynamic>? ?? {};
+    final equippedIds = equippedJson.map(
+      (key, value) => MapEntry(key, value as String?),
+    );
+
+    return EquipmentProgressData(
+      inventory: inventory,
+      equippedIds: equippedIds,
+      nextInstanceId: json['nextInstanceId'] as int? ?? 1,
+    );
+  }
+
+  /// 장비 추가
+  EquipmentProgressData AddEquipment(String equipmentId) {
+    final newInstance = EquipmentInstanceData(
+      instanceId: 'equip_$nextInstanceId',
+      equipmentId: equipmentId,
+      level: 1,
+      isEquipped: false,
+    );
+    return EquipmentProgressData(
+      inventory: [...inventory, newInstance],
+      equippedIds: equippedIds,
+      nextInstanceId: nextInstanceId + 1,
+    );
+  }
+
+  /// 장비 제거
+  EquipmentProgressData RemoveEquipment(String instanceId) {
+    final newInventory = inventory.where((e) => e.instanceId != instanceId).toList();
+    // 장착 해제
+    final newEquipped = Map<String, String?>.from(equippedIds);
+    newEquipped.removeWhere((key, value) => value == instanceId);
+    return EquipmentProgressData(
+      inventory: newInventory,
+      equippedIds: newEquipped,
+      nextInstanceId: nextInstanceId,
+    );
+  }
+
+  /// 장비 장착
+  EquipmentProgressData EquipItem(String instanceId, EquipmentSlot slot) {
+    final slotName = slot.name;
+    final oldEquippedId = equippedIds[slotName];
+
+    // 기존 장착 해제
+    var newInventory = inventory.map((e) {
+      if (e.instanceId == oldEquippedId) {
+        return e.CopyWith(isEquipped: false);
+      }
+      if (e.instanceId == instanceId) {
+        return e.CopyWith(isEquipped: true);
+      }
+      return e;
+    }).toList();
+
+    final newEquipped = Map<String, String?>.from(equippedIds);
+    newEquipped[slotName] = instanceId;
+
+    return EquipmentProgressData(
+      inventory: newInventory,
+      equippedIds: newEquipped,
+      nextInstanceId: nextInstanceId,
+    );
+  }
+
+  /// 장비 해제
+  EquipmentProgressData UnequipItem(EquipmentSlot slot) {
+    final slotName = slot.name;
+    final equippedId = equippedIds[slotName];
+    if (equippedId == null) return this;
+
+    final newInventory = inventory.map((e) {
+      if (e.instanceId == equippedId) {
+        return e.CopyWith(isEquipped: false);
+      }
+      return e;
+    }).toList();
+
+    final newEquipped = Map<String, String?>.from(equippedIds);
+    newEquipped[slotName] = null;
+
+    return EquipmentProgressData(
+      inventory: newInventory,
+      equippedIds: newEquipped,
+      nextInstanceId: nextInstanceId,
+    );
+  }
+
+  /// 장비 강화
+  EquipmentProgressData UpgradeEquipment(String instanceId) {
+    final newInventory = inventory.map((e) {
+      if (e.instanceId == instanceId) {
+        return e.CopyWith(level: e.level + 1);
+      }
+      return e;
+    }).toList();
+
+    return EquipmentProgressData(
+      inventory: newInventory,
+      equippedIds: equippedIds,
+      nextInstanceId: nextInstanceId,
+    );
+  }
+
+  /// 장착된 무기의 장비 ID 조회
+  String? GetEquippedWeaponId() {
+    final instanceId = equippedIds['weapon'];
+    if (instanceId == null) return null;
+    final instance = inventory.firstWhere(
+      (e) => e.instanceId == instanceId,
+      orElse: () => const EquipmentInstanceData(instanceId: '', equipmentId: ''),
+    );
+    return instance.equipmentId.isNotEmpty ? instance.equipmentId : null;
+  }
+
+  /// 인스턴스 ID로 장비 조회
+  EquipmentInstanceData? GetByInstanceId(String instanceId) {
+    try {
+      return inventory.firstWhere((e) => e.instanceId == instanceId);
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
 /// 전체 진행 데이터
 class ProgressData {
   final AccountLevel accountLevel;
   final CurrencyData currency;
   final Map<String, ChallengeRecordData> challengeRecords;
+  final EquipmentProgressData equipment;  // 장비 데이터 추가
   final int totalPlayTime;      // 총 플레이 시간 (초)
   final int totalKills;         // 총 처치 수
   final int totalGamesPlayed;   // 총 게임 횟수
@@ -185,6 +385,7 @@ class ProgressData {
     this.accountLevel = const AccountLevel(),
     this.currency = const CurrencyData(),
     this.challengeRecords = const {},
+    this.equipment = const EquipmentProgressData(),
     this.totalPlayTime = 0,
     this.totalKills = 0,
     this.totalGamesPlayed = 0,
@@ -202,6 +403,7 @@ class ProgressData {
       accountLevel: accountLevel.AddExp(expGained),
       currency: currency.AddGold(goldGained).AddGems(gemsGained),
       challengeRecords: challengeRecords,
+      equipment: equipment,
       totalPlayTime: totalPlayTime + playTime,
       totalKills: totalKills + kills,
       totalGamesPlayed: totalGamesPlayed + 1,
@@ -216,6 +418,20 @@ class ProgressData {
       accountLevel: accountLevel,
       currency: currency,
       challengeRecords: newRecords,
+      equipment: equipment,
+      totalPlayTime: totalPlayTime,
+      totalKills: totalKills,
+      totalGamesPlayed: totalGamesPlayed,
+    );
+  }
+
+  /// 장비 데이터 업데이트
+  ProgressData UpdateEquipment(EquipmentProgressData newEquipment) {
+    return ProgressData(
+      accountLevel: accountLevel,
+      currency: currency,
+      challengeRecords: challengeRecords,
+      equipment: newEquipment,
       totalPlayTime: totalPlayTime,
       totalKills: totalKills,
       totalGamesPlayed: totalGamesPlayed,
@@ -229,6 +445,7 @@ class ProgressData {
       'challengeRecords': challengeRecords.map(
         (key, value) => MapEntry(key, value.ToJson()),
       ),
+      'equipment': equipment.ToJson(),
       'totalPlayTime': totalPlayTime,
       'totalKills': totalKills,
       'totalGamesPlayed': totalGamesPlayed,
@@ -252,6 +469,9 @@ class ProgressData {
           ? CurrencyData.FromJson(json['currency'] as Map<String, dynamic>)
           : const CurrencyData(),
       challengeRecords: records,
+      equipment: json['equipment'] != null
+          ? EquipmentProgressData.FromJson(json['equipment'] as Map<String, dynamic>)
+          : const EquipmentProgressData(),
       totalPlayTime: json['totalPlayTime'] as int? ?? 0,
       totalKills: json['totalKills'] as int? ?? 0,
       totalGamesPlayed: json['totalGamesPlayed'] as int? ?? 0,

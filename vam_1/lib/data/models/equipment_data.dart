@@ -18,6 +18,19 @@ enum EquipmentRarity {
   legendary,
 }
 
+/// 장비 스탯 (장비 전용)
+class EquipmentStats {
+  final int hp;
+  final int atk;
+  final int def;
+
+  const EquipmentStats({
+    this.hp = 0,
+    this.atk = 0,
+    this.def = 0,
+  });
+}
+
 /// 장비 데이터 모델
 class EquipmentData {
   final String id;
@@ -25,7 +38,8 @@ class EquipmentData {
   final String description;
   final EquipmentSlot slot;
   final EquipmentRarity rarity;
-  final ActorStats bonusStats;  // 장비 착용 시 추가 스탯
+  final EquipmentStats stats;  // 장비 착용 시 추가 스탯
+  final String? skillId;  // 무기 전용: 스킬 ID
   final String? specialEffect;  // 특수 효과 ID (선택)
 
   const EquipmentData({
@@ -34,9 +48,20 @@ class EquipmentData {
     required this.description,
     required this.slot,
     required this.rarity,
-    required this.bonusStats,
+    required this.stats,
+    this.skillId,
     this.specialEffect,
   });
+
+  // 하위 호환성을 위한 getter
+  ActorStats get bonusStats => ActorStats(
+    hp: stats.hp,
+    atk: stats.atk,
+    def: stats.def,
+    spd: 0,
+    critRate: 0,
+    critDmg: 0,
+  );
 
   /// 등급별 스탯 배율 (강화 시 사용)
   double GetRarityMultiplier() {
@@ -108,31 +133,55 @@ class DefaultEquipments {
 
   // ========== 무기 ==========
 
+  /// 초보자의 지팡이 - 에너지 볼트
+  static const EquipmentData STARTER_WAND = EquipmentData(
+    id: 'equip_starter_wand',
+    name: '초보자의 지팡이',
+    description: '에너지 볼트를 발사하는 기본 지팡이.',
+    slot: EquipmentSlot.weapon,
+    rarity: EquipmentRarity.common,
+    stats: EquipmentStats(hp: 0, atk: 3, def: 0),
+    skillId: 'skill_energy_bolt',
+  );
+
   static const EquipmentData IRON_SWORD = EquipmentData(
     id: 'equip_iron_sword',
     name: '철 검',
     description: '기본적인 철제 검. 공격력을 소폭 올려줍니다.',
     slot: EquipmentSlot.weapon,
     rarity: EquipmentRarity.common,
-    bonusStats: ActorStats(hp: 0, atk: 5, def: 0, spd: 0, critRate: 0, critDmg: 0),
+    stats: EquipmentStats(hp: 0, atk: 5, def: 0),
+    skillId: 'skill_spinning_blade',
   );
 
   static const EquipmentData FLAME_BLADE = EquipmentData(
     id: 'equip_flame_blade',
     name: '화염 검',
-    description: '불꽃이 깃든 검. 높은 공격력과 크리티컬을 제공합니다.',
+    description: '불꽃이 깃든 검. 높은 공격력과 화염 폭발 스킬.',
     slot: EquipmentSlot.weapon,
     rarity: EquipmentRarity.rare,
-    bonusStats: ActorStats(hp: 0, atk: 12, def: 0, spd: 0, critRate: 5, critDmg: 20),
+    stats: EquipmentStats(hp: 0, atk: 12, def: 0),
+    skillId: 'skill_fire_burst',
   );
 
   static const EquipmentData THUNDER_STAFF = EquipmentData(
     id: 'equip_thunder_staff',
     name: '번개 지팡이',
-    description: '번개의 힘을 담은 지팡이. 강력한 마법 공격력.',
+    description: '번개의 힘을 담은 지팡이. 연쇄 번개 스킬.',
     slot: EquipmentSlot.weapon,
     rarity: EquipmentRarity.epic,
-    bonusStats: ActorStats(hp: 0, atk: 20, def: 0, spd: 0.2, critRate: 8, critDmg: 30),
+    stats: EquipmentStats(hp: 0, atk: 20, def: 0),
+    skillId: 'skill_chain_lightning',
+  );
+
+  static const EquipmentData POISON_BOW = EquipmentData(
+    id: 'equip_poison_bow',
+    name: '독 활',
+    description: '관통하는 독 화살을 발사하는 활.',
+    slot: EquipmentSlot.weapon,
+    rarity: EquipmentRarity.rare,
+    stats: EquipmentStats(hp: 0, atk: 8, def: 0),
+    skillId: 'skill_poison_arrow',
   );
 
   // ========== 방어구 ==========
@@ -143,7 +192,7 @@ class DefaultEquipments {
     description: '기본적인 가죽 갑옷. 방어력을 소폭 올려줍니다.',
     slot: EquipmentSlot.armor,
     rarity: EquipmentRarity.common,
-    bonusStats: ActorStats(hp: 20, atk: 0, def: 3, spd: 0, critRate: 0, critDmg: 0),
+    stats: EquipmentStats(hp: 20, atk: 0, def: 3),
   );
 
   static const EquipmentData KNIGHT_PLATE = EquipmentData(
@@ -152,7 +201,7 @@ class DefaultEquipments {
     description: '튼튼한 판금 갑옷. 높은 방어력과 체력을 제공합니다.',
     slot: EquipmentSlot.armor,
     rarity: EquipmentRarity.rare,
-    bonusStats: ActorStats(hp: 50, atk: 0, def: 8, spd: -0.1, critRate: 0, critDmg: 0),
+    stats: EquipmentStats(hp: 50, atk: 0, def: 8),
   );
 
   static const EquipmentData DRAGON_SCALE = EquipmentData(
@@ -161,7 +210,7 @@ class DefaultEquipments {
     description: '용의 비늘로 만든 전설의 갑옷.',
     slot: EquipmentSlot.armor,
     rarity: EquipmentRarity.legendary,
-    bonusStats: ActorStats(hp: 100, atk: 5, def: 15, spd: 0, critRate: 0, critDmg: 0),
+    stats: EquipmentStats(hp: 100, atk: 5, def: 15),
   );
 
   // ========== 액세서리 ==========
@@ -172,7 +221,7 @@ class DefaultEquipments {
     description: '이동 속도를 높여주는 부츠.',
     slot: EquipmentSlot.accessory,
     rarity: EquipmentRarity.common,
-    bonusStats: ActorStats(hp: 0, atk: 0, def: 0, spd: 0.3, critRate: 0, critDmg: 0),
+    stats: EquipmentStats(hp: 0, atk: 0, def: 0),
   );
 
   static const EquipmentData CRITICAL_RING = EquipmentData(
@@ -181,7 +230,7 @@ class DefaultEquipments {
     description: '크리티컬 확률과 데미지를 높여주는 반지.',
     slot: EquipmentSlot.accessory,
     rarity: EquipmentRarity.rare,
-    bonusStats: ActorStats(hp: 0, atk: 0, def: 0, spd: 0, critRate: 10, critDmg: 25),
+    stats: EquipmentStats(hp: 0, atk: 5, def: 0),
   );
 
   static const EquipmentData LIFE_PENDANT = EquipmentData(
@@ -190,10 +239,10 @@ class DefaultEquipments {
     description: '착용자의 생명력을 크게 높여주는 펜던트.',
     slot: EquipmentSlot.accessory,
     rarity: EquipmentRarity.epic,
-    bonusStats: ActorStats(hp: 80, atk: 0, def: 5, spd: 0, critRate: 0, critDmg: 0),
+    stats: EquipmentStats(hp: 80, atk: 0, def: 5),
   );
 
-  static List<EquipmentData> get allWeapons => [IRON_SWORD, FLAME_BLADE, THUNDER_STAFF];
+  static List<EquipmentData> get allWeapons => [STARTER_WAND, IRON_SWORD, FLAME_BLADE, THUNDER_STAFF, POISON_BOW];
   static List<EquipmentData> get allArmors => [LEATHER_ARMOR, KNIGHT_PLATE, DRAGON_SCALE];
   static List<EquipmentData> get allAccessories => [SPEED_BOOTS, CRITICAL_RING, LIFE_PENDANT];
   static List<EquipmentData> get all => [...allWeapons, ...allArmors, ...allAccessories];

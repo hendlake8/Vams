@@ -55,8 +55,7 @@ class WeaponSystem {
   void Reset() {
     mEquippedWeapon = null;
     mWeaponLevel = 1;
-    // 캐릭터 기본 무기 재장착
-    EquipWeapon(mGame.mCharacterData.baseWeaponId, level: 1);
+    // 초기 스킬 재설정은 VamGame.InitializeStarterSkills()에서 처리
   }
 
   /// 장착된 무기 정보

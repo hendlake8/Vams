@@ -8,6 +8,7 @@ import '../../game/systems/progress_system.dart';
 import '../../game/vam_game.dart';
 import 'character_select_screen.dart';
 import 'challenge_screen.dart';
+import 'equipment_management_screen.dart';
 
 /// 메인 로비 화면
 class MainLobbyScreen extends StatefulWidget {
@@ -31,6 +32,9 @@ class _MainLobbyScreenState extends State<MainLobbyScreen> {
   Future<void> _initializeProgress() async {
     // ProgressSystem 초기화 (저장된 데이터 불러오기)
     await ProgressSystem.instance.Initialize();
+
+    // 초기 장비 설정 (신규 계정)
+    await ProgressSystem.instance.InitializeStarterEquipment();
 
     // 임시 게임 인스턴스로 ChallengeSystem 생성 (기록 확인용)
     final tempGame = VamGame();
@@ -168,7 +172,42 @@ class _MainLobbyScreenState extends State<MainLobbyScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 80),
+                    const SizedBox(height: 16),
+
+                    // 장비 관리 버튼
+                    SizedBox(
+                      width: 240,
+                      height: 60,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const EquipmentManagementScreen(),
+                            ),
+                          ).then((_) {
+                            // 장비 관리 화면에서 돌아오면 UI 갱신
+                            setState(() {});
+                          });
+                        },
+                        icon: const Icon(Icons.shield, color: Colors.purple),
+                        label: const Text(
+                          '장비 관리',
+                          style: TextStyle(
+                            fontSize: DesignConstants.FONT_SIZE_LARGE,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: DesignConstants.COLOR_SURFACE,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(DesignConstants.CORNER_RADIUS),
+                            side: const BorderSide(color: Colors.purple, width: 2),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 64),
 
                     // 안내 텍스트
                     const Text(

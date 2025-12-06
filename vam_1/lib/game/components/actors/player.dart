@@ -55,8 +55,8 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
     // 히트박스
     add(CircleHitbox(radius: 20));
 
-    // 캐릭터 기본 무기 장착
-    game.weaponSystem.EquipWeapon(characterData.baseWeaponId, level: 1);
+    // 초기 스킬 설정 (장비 무기 스킬 + 캐릭터 기본 스킬)
+    game.InitializeStarterSkills();
 
     Logger.game('Player loaded - HP: $mCurrentHp/$mMaxHp');
   }

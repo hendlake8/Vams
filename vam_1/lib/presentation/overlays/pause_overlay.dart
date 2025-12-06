@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/constants/design_constants.dart';
 import '../../data/models/skill_data.dart';
 import '../../game/vam_game.dart';
-import '../screens/equipment_screen.dart';
 
 /// 일시정지 오버레이
 class PauseOverlay extends StatelessWidget {
@@ -46,23 +45,6 @@ class PauseOverlay extends StatelessWidget {
                     onPressed: () {
                       game.overlays.remove('Pause');
                       game.ResumeGame();
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // 장비 관리 버튼
-                  _MenuButton(
-                    text: '장비 관리',
-                    color: Colors.purple,
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => EquipmentScreen(
-                            equipmentSystem: game.equipmentSystem,
-                          ),
-                        ),
-                      );
                     },
                   ),
 

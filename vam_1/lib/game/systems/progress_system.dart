@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/utils/logger.dart';
+import '../../data/models/equipment_data.dart';
 import '../../data/models/progress_data.dart';
 
 /// 영구 진행 시스템
@@ -147,6 +148,7 @@ class ProgressSystem {
       accountLevel: _data.accountLevel,
       currency: _data.currency.AddGold(gold).AddGems(gems),
       challengeRecords: _data.challengeRecords,
+      equipment: _data.equipment,
       totalPlayTime: _data.totalPlayTime,
       totalKills: _data.totalKills,
       totalGamesPlayed: _data.totalGamesPlayed,
@@ -165,6 +167,7 @@ class ProgressSystem {
       accountLevel: _data.accountLevel,
       currency: _data.currency.SpendGold(gold).SpendGems(gems),
       challengeRecords: _data.challengeRecords,
+      equipment: _data.equipment,
       totalPlayTime: _data.totalPlayTime,
       totalKills: _data.totalKills,
       totalGamesPlayed: _data.totalGamesPlayed,
@@ -190,12 +193,97 @@ class ProgressSystem {
       ),
       currency: _data.currency,
       challengeRecords: _data.challengeRecords,
+      equipment: _data.equipment,
       totalPlayTime: _data.totalPlayTime,
       totalKills: _data.totalKills,
       totalGamesPlayed: _data.totalGamesPlayed,
     );
     await Save();
     Logger.game('Debug: Level set to $level');
+  }
+
+  // ==================== 장비 관리 ====================
+
+  /// 장비 데이터 getter
+  EquipmentProgressData get equipment => _data.equipment;
+
+  /// 장비 인벤토리
+  List<EquipmentInstanceData> get equipmentInventory => _data.equipment.inventory;
+
+  /// 장착된 장비 ID 맵
+  Map<String, String?> get equippedIds => _data.equipment.equippedIds;
+
+  /// 장착된 무기의 장비 ID
+  String? get equippedWeaponId => _data.equipment.GetEquippedWeaponId();
+
+  /// 장비 추가
+  Future<void> AddEquipment(String equipmentId) async {
+    _data = _data.UpdateEquipment(_data.equipment.AddEquipment(equipmentId));
+    await Save();
+    Logger.game('Equipment added: $equipmentId');
+  }
+
+  /// 장비 제거
+  Future<void> RemoveEquipment(String instanceId) async {
+    _data = _data.UpdateEquipment(_data.equipment.RemoveEquipment(instanceId));
+    await Save();
+    Logger.game('Equipment removed: $instanceId');
+  }
+
+  /// 장비 장착
+  Future<void> EquipItem(String instanceId, EquipmentSlot slot) async {
+    _data = _data.UpdateEquipment(_data.equipment.EquipItem(instanceId, slot));
+    await Save();
+    Logger.game('Equipment equipped: $instanceId to ${slot.name}');
+  }
+
+  /// 장비 해제
+  Future<void> UnequipItem(EquipmentSlot slot) async {
+    _data = _data.UpdateEquipment(_data.equipment.UnequipItem(slot));
+    await Save();
+    Logger.game('Equipment unequipped from ${slot.name}');
+  }
+
+  /// 장비 강화
+  Future<void> UpgradeEquipment(String instanceId) async {
+    _data = _data.UpdateEquipment(_data.equipment.UpgradeEquipment(instanceId));
+    await Save();
+    Logger.game('Equipment upgraded: $instanceId');
+  }
+
+  /// 인스턴스 ID로 장비 조회
+  EquipmentInstanceData? GetEquipmentByInstanceId(String instanceId) {
+    return _data.equipment.GetByInstanceId(instanceId);
+  }
+
+  /// 슬롯별 장착된 장비 조회
+  EquipmentInstanceData? GetEquippedItem(EquipmentSlot slot) {
+    final instanceId = _data.equipment.equippedIds[slot.name];
+    if (instanceId == null) return null;
+    return _data.equipment.GetByInstanceId(instanceId);
+  }
+
+  /// 장착된 무기의 스킬 ID 반환
+  String? GetEquippedWeaponSkillId() {
+    final weaponEquipmentId = _data.equipment.GetEquippedWeaponId();
+    if (weaponEquipmentId == null) return null;
+
+    final weaponData = DefaultEquipments.GetById(weaponEquipmentId);
+    return weaponData?.skillId;
+  }
+
+  /// 초기 장비 설정 (신규 계정용)
+  Future<void> InitializeStarterEquipment() async {
+    // 이미 장비가 있으면 스킵
+    if (_data.equipment.inventory.isNotEmpty) return;
+
+    // 기본 무기 추가 및 장착
+    _data = _data.UpdateEquipment(_data.equipment.AddEquipment('equip_starter_wand'));
+    final starterInstance = _data.equipment.inventory.first;
+    _data = _data.UpdateEquipment(_data.equipment.EquipItem(starterInstance.instanceId, EquipmentSlot.weapon));
+
+    await Save();
+    Logger.game('Starter equipment initialized');
   }
 }
 

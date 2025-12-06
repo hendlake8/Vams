@@ -1,6 +1,6 @@
 # 뱀서라이크 슈팅 게임 구현 내역서
 
-> 문서 버전: 1.5
+> 문서 버전: 1.6
 > 최종 수정일: 2025-12-06
 
 ---
@@ -15,6 +15,7 @@
 6. [시스템 연동 흐름](#6-시스템-연동-흐름)
 7. [개발 로드맵 진행 현황](#7-개발-로드맵-진행-현황)
 8. [버그 수정 이력](#8-버그-수정-이력)
+9. [장비 시스템 아키텍처 변경](#9-장비-시스템-아키텍처-변경)
 
 ---
 
@@ -70,10 +71,11 @@
 |----|------|------|------|
 | HUD | `hud_overlay.dart` | ✅ 완료 | HP바, EXP바, 시간, 킬수 |
 | 스킬 선택 | `skill_select_overlay.dart` | ✅ 완료 | 레벨업 시 스킬 선택 UI |
-| 일시정지 | `pause_overlay.dart` | ✅ 완료 | 일시정지 + 습득 스킬 + 장비 관리 |
+| 일시정지 | `pause_overlay.dart` | ✅ 완료 | 일시정지 + 습득 스킬 목록 |
 | 게임오버 | `game_over_overlay.dart` | ✅ 완료 | 게임오버/승리 화면 |
 | 캐릭터 선택 | `character_select_screen.dart` | ✅ 완료 | 캐릭터 선택 UI (Phase 2) |
-| 장비 관리 | `equipment_screen.dart` | ✅ 완료 | 장비 장착/강화 UI (Phase 2) |
+| 장비 관리 (게임 내) | `equipment_screen.dart` | ✅ 완료 | 장비 장착/강화 UI (Phase 2, 게임 인스턴스용) |
+| 장비 관리 (로비) | `equipment_management_screen.dart` | ✅ 완료 | 로비 장비 관리 (Phase 2.1, 영구 저장) |
 | 장비 합성 | `fusion_screen.dart` | ✅ 완료 | 장비 합성 UI (Phase 2) |
 | 도전 선택 | `challenge_screen.dart` | ✅ 완료 | 도전 모드 선택 UI (Phase 2) |
 
@@ -146,7 +148,8 @@ lib/
     ├── screens/
     │   ├── main_lobby_screen.dart
     │   ├── character_select_screen.dart  # 캐릭터 선택 ⭐ (Phase 2)
-    │   ├── equipment_screen.dart         # 장비 관리 ⭐ (Phase 2)
+    │   ├── equipment_screen.dart         # 장비 관리 (게임 내) ⭐ (Phase 2)
+    │   ├── equipment_management_screen.dart  # 장비 관리 (로비) ⭐ (Phase 2.1)
     │   ├── fusion_screen.dart            # 장비 합성 ⭐ (Phase 2)
     │   └── game_screen.dart
     └── overlays/
@@ -823,6 +826,7 @@ class ChallengeRecordData {
 | 1.3 | 2025-12-06 | Phase 2 장비 합성 추가 (합성 로직, 합성 UI) |
 | 1.4 | 2025-12-06 | Phase 2 도전/진행 시스템 추가 (ChallengeSystem, ProgressSystem) |
 | 1.5 | 2025-12-06 | 버그 수정: 레벨업/도전모드/결과화면/로비UI/회전무기 수정 |
+| 1.6 | 2025-12-06 | 장비 시스템 아키텍처 변경: 영구 저장, 로비 UI, 스킬 기반 캐릭터 |
 
 ---
 
@@ -1020,3 +1024,389 @@ void Reset() {
   // ...
 }
 ```
+
+---
+
+## 9. 장비 시스템 아키텍처 변경
+
+### 9.1 변경 개요
+
+**버전**: 1.6 (Phase 2.1)
+
+**변경 목적**:
+- 장비를 **영구적인 계정 성장 요소**로 전환 (기존: 게임 인스턴스 기반)
+- 장비 관리 UI를 **로비**로 이동 (기존: 일시정지 메뉴)
+- 캐릭터 시스템을 **무기 기반에서 스킬 기반**으로 변경
+
+### 9.2 데이터 모델 변경
+
+#### 9.2.1 새로운 데이터 클래스 (progress_data.dart)
+
+```dart
+/// 장비 인스턴스 데이터 (영구 저장용)
+class EquipmentInstanceData {
+  final String instanceId;    // 고유 인스턴스 ID
+  final String equipmentId;   // 장비 템플릿 ID
+  final int level;            // 강화 레벨
+
+  EquipmentInstanceData({
+    required this.instanceId,
+    required this.equipmentId,
+    this.level = 1,
+  });
+
+  // JSON 직렬화/역직렬화
+  Map<String, dynamic> ToJson() => {...};
+  factory EquipmentInstanceData.FromJson(Map<String, dynamic> json) => ...;
+  EquipmentInstanceData copyWith({String? instanceId, String? equipmentId, int? level}) => ...;
+}
+
+/// 장비 진행 데이터 (ProgressData 내 포함)
+class EquipmentProgressData {
+  final List<EquipmentInstanceData> inventory;  // 보유 장비 목록
+  final Map<String, String?> equippedIds;        // 슬롯별 장착 인스턴스 ID
+  // equippedIds 키: 'weapon', 'armor', 'accessory'
+
+  // CRUD 메서드
+  EquipmentProgressData AddItem(EquipmentInstanceData item) => ...;
+  EquipmentProgressData RemoveItem(String instanceId) => ...;
+  EquipmentProgressData EquipItem(String instanceId, String slotKey) => ...;
+  EquipmentProgressData UnequipItem(String slotKey) => ...;
+  EquipmentProgressData UpgradeItem(String instanceId) => ...;
+  String? GetEquippedWeaponId() => ...;  // 장착된 무기의 equipmentId 반환
+}
+```
+
+#### 9.2.2 ProgressData 확장
+
+```dart
+class ProgressData {
+  final AccountLevel accountLevel;
+  final CurrencyData currency;
+  final Map<String, ChallengeRecordData> challengeRecords;
+  final EquipmentProgressData equipment;  // ⭐ 추가
+  // ...
+}
+```
+
+#### 9.2.3 EquipmentData 확장 (equipment_data.dart)
+
+```dart
+/// 장비 스탯 (단순화된 버전)
+class EquipmentStats {
+  final int hp;
+  final int atk;
+  final int def;
+  const EquipmentStats({this.hp = 0, this.atk = 0, this.def = 0});
+}
+
+class EquipmentData {
+  final EquipmentStats stats;   // ⭐ 변경: ActorStats → EquipmentStats
+  final String? skillId;        // ⭐ 추가: 무기 전용 스킬 ID
+
+  // bonusStats getter (하위 호환성)
+  ActorStats get bonusStats => ActorStats(hp: stats.hp, atk: stats.atk, def: stats.def, ...);
+}
+```
+
+#### 9.2.4 정의된 무기와 스킬 연결
+
+| 장비 ID | 이름 | skillId | 설명 |
+|---------|------|---------|------|
+| equip_starter_wand | 초보자의 지팡이 | skill_energy_bolt | 기본 에너지 볼트 |
+| equip_iron_sword | 철 검 | skill_spinning_blade | 회전 검 |
+| equip_flame_blade | 화염 검 | skill_fire_burst | 화염 폭발 |
+| equip_thunder_staff | 번개 지팡이 | skill_chain_lightning | 연쇄 번개 |
+| equip_poison_bow | 독 활 | skill_poison_arrow | 독 화살 |
+
+### 9.3 CharacterData 변경
+
+#### 9.3.1 baseWeaponId → baseSkillId
+
+```dart
+// 변경 전
+class CharacterData {
+  final String baseWeaponId;  // 무기 ID
+}
+
+// 변경 후
+class CharacterData {
+  final String baseSkillId;   // 스킬 ID (직접 참조)
+}
+```
+
+#### 9.3.2 캐릭터별 기본 스킬
+
+| 캐릭터 ID | 이름 | 기존 (baseWeaponId) | 변경 후 (baseSkillId) |
+|-----------|------|---------------------|----------------------|
+| char_commando | 특공대원 | weapon_starter_wand | skill_energy_bolt |
+| char_swordsman | 검사 | weapon_spinning_sword | skill_spinning_blade |
+| char_pyromancer | 화염 마법사 | weapon_fire_staff | skill_fire_burst |
+| char_archer | 궁수 | weapon_poison_bow | skill_poison_arrow |
+| char_stormcaller | 번개 마법사 | weapon_lightning_staff | skill_chain_lightning |
+
+### 9.4 ProgressSystem 장비 관리 기능
+
+```dart
+class ProgressSystem {
+  // ==================== 장비 관리 ====================
+
+  EquipmentProgressData get equipment => _data.equipment;
+  List<EquipmentInstanceData> get equipmentInventory => _data.equipment.inventory;
+  Map<String, String?> get equippedIds => _data.equipment.equippedIds;
+  String? get equippedWeaponId => _data.equipment.GetEquippedWeaponId();
+
+  /// 장비 추가 (인벤토리에)
+  Future<void> AddEquipment(String equipmentId) async {...}
+
+  /// 장비 제거 (인벤토리에서)
+  Future<void> RemoveEquipment(String instanceId) async {...}
+
+  /// 장비 장착
+  Future<void> EquipItem(String instanceId, EquipmentSlot slot) async {...}
+
+  /// 장비 해제
+  Future<void> UnequipItem(EquipmentSlot slot) async {...}
+
+  /// 장비 강화
+  Future<void> UpgradeEquipment(String instanceId) async {...}
+
+  /// 인스턴스 ID로 장비 조회
+  EquipmentInstanceData? GetEquipmentByInstanceId(String instanceId) {...}
+
+  /// 슬롯에 장착된 장비 조회
+  EquipmentInstanceData? GetEquippedItem(EquipmentSlot slot) {...}
+
+  /// 장착된 무기의 스킬 ID 반환
+  String? GetEquippedWeaponSkillId() {
+    final weaponId = _data.equipment.GetEquippedWeaponId();
+    if (weaponId == null) return null;
+    final equipmentData = DefaultEquipments.GetById(weaponId);
+    return equipmentData?.skillId;
+  }
+
+  /// 초기 장비 설정 (신규 계정)
+  Future<void> InitializeStarterEquipment() async {
+    if (_data.equipment.inventory.isEmpty) {
+      await AddEquipment('equip_starter_wand');
+      // 초보자 지팡이 자동 장착
+      final starterWand = _data.equipment.inventory.first;
+      await EquipItem(starterWand.instanceId, EquipmentSlot.weapon);
+    }
+  }
+}
+```
+
+### 9.5 게임 시작 시 초기 스킬 설정
+
+#### 9.5.1 VamGame.InitializeStarterSkills()
+
+```dart
+/// 초기 스킬 설정 (장비 무기 스킬 + 캐릭터 기본 스킬)
+void InitializeStarterSkills() {
+  // 1. 장비 무기의 스킬 추가
+  final weaponSkillId = ProgressSystem.instance.GetEquippedWeaponSkillId();
+  if (weaponSkillId != null) {
+    skillSystem.AddSkill(weaponSkillId, level: 1);
+    levelSystem.mAcquiredSkills[weaponSkillId] = 1;  // ⭐ 습득 스킬로 등록
+    Logger.game('Equipped weapon skill added: $weaponSkillId');
+  } else {
+    // 장비가 없으면 기본 무기 스킬 사용
+    const defaultWeaponSkillId = 'skill_energy_bolt';
+    skillSystem.AddSkill(defaultWeaponSkillId, level: 1);
+    levelSystem.mAcquiredSkills[defaultWeaponSkillId] = 1;
+  }
+
+  // 2. 캐릭터 기본 스킬 추가
+  final characterSkillId = mCharacterData.baseSkillId;
+  // 장비 무기 스킬과 캐릭터 기본 스킬이 다르면 추가
+  if (characterSkillId != weaponSkillId) {
+    skillSystem.AddSkill(characterSkillId, level: 1);
+    levelSystem.mAcquiredSkills[characterSkillId] = 1;  // ⭐ 습득 스킬로 등록
+  }
+
+  // 3. 장비 스탯 보너스 적용
+  _applyEquipmentBonuses();
+}
+```
+
+#### 9.5.2 장비 스탯 보너스 적용
+
+```dart
+void _applyEquipmentBonuses() {
+  final progress = ProgressSystem.instance;
+
+  for (final slot in EquipmentSlot.values) {
+    final instance = progress.GetEquippedItem(slot);
+    if (instance == null) continue;
+
+    final equipmentData = DefaultEquipments.GetById(instance.equipmentId);
+    if (equipmentData == null) continue;
+
+    // 레벨에 따른 스탯 보너스 적용
+    final levelMultiplier = 1.0 + (instance.level - 1) * 0.1;
+    final stats = equipmentData.stats;
+
+    player.mBaseStats = player.mBaseStats.copyWith(
+      hp: player.mBaseStats.hp + (stats.hp * levelMultiplier).round(),
+      atk: player.mBaseStats.atk + (stats.atk * levelMultiplier).round(),
+      def: player.mBaseStats.def + (stats.def * levelMultiplier).round(),
+    );
+  }
+
+  // HP 재계산
+  player.mMaxHp = player.mBaseStats.hp;
+  player.mCurrentHp = player.mMaxHp;
+}
+```
+
+### 9.6 UI 변경 사항
+
+#### 9.6.1 일시정지 메뉴에서 장비 관리 제거
+
+**파일**: `pause_overlay.dart`
+
+- `equipment_screen.dart` import 제거
+- 장비 관리 버튼 제거
+- 일시정지 메뉴는 **습득 스킬 목록 표시**에 집중
+
+#### 9.6.2 로비에 장비 관리 버튼 추가
+
+**파일**: `main_lobby_screen.dart`
+
+```dart
+// 초기화 시 초보자 장비 설정
+Future<void> _initializeProgress() async {
+  await ProgressSystem.instance.Initialize();
+  await ProgressSystem.instance.InitializeStarterEquipment();  // ⭐ 추가
+  // ...
+}
+
+// 장비 관리 버튼 추가
+SizedBox(
+  width: 240,
+  height: 60,
+  child: ElevatedButton.icon(
+    onPressed: () {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => const EquipmentManagementScreen(),
+        ),
+      ).then((_) => setState(() {}));
+    },
+    icon: const Icon(Icons.shield, color: Colors.purple),
+    label: const Text('장비 관리'),
+    // ...
+  ),
+),
+```
+
+#### 9.6.3 새로운 EquipmentManagementScreen
+
+**파일**: `equipment_management_screen.dart`
+
+**특징**:
+- `ProgressSystem` 기반 영구 저장 데이터 사용
+- 슬롯 탭 (무기/방어구/장신구)
+- 장착 중인 장비 표시
+- 인벤토리 장비 목록 (슬롯별 필터링)
+- 장착/해제 기능
+
+```dart
+class EquipmentManagementScreen extends StatefulWidget {
+  // ...
+}
+
+class _EquipmentManagementScreenState extends State<EquipmentManagementScreen> {
+  EquipmentSlot mSelectedSlot = EquipmentSlot.weapon;
+
+  Widget _buildSlotTabs() { /* 슬롯 탭 UI */ }
+  Widget _buildEquippedSection() { /* 장착 장비 표시 */ }
+  Widget _buildInventorySection() { /* 인벤토리 목록 */ }
+  Widget _buildEquipmentCard() { /* 장비 카드 */ }
+
+  void _equipItem(EquipmentInstanceData instance) async {
+    await ProgressSystem.instance.EquipItem(instance.instanceId, mSelectedSlot);
+    setState(() {});
+  }
+
+  void _unequipItem() async {
+    await ProgressSystem.instance.UnequipItem(mSelectedSlot);
+    setState(() {});
+  }
+}
+```
+
+### 9.7 시스템 연동 흐름 (업데이트)
+
+```
+[앱 시작]
+    │
+    ▼
+[MainLobbyScreen]
+    │
+    ├── ProgressSystem.Initialize()
+    │   └── SharedPreferences에서 저장 데이터 불러오기
+    │
+    ├── ProgressSystem.InitializeStarterEquipment()
+    │   └── 신규 계정이면 초보자 지팡이 지급 및 장착
+    │
+    ├── [장비 관리 버튼] → EquipmentManagementScreen
+    │   ├── 슬롯별 인벤토리 표시
+    │   ├── 장착/해제 (ProgressSystem에 저장)
+    │   └── 로비로 복귀
+    │
+    └── [게임 시작] → CharacterSelectScreen → GameScreen
+        │
+        ▼
+[VamGame.onLoad()]
+    │
+    ├── Player 생성
+    │   └── game.InitializeStarterSkills() 호출
+    │       │
+    │       ├── 장비 무기 스킬 추가 (ProgressSystem에서 조회)
+    │       │   └── levelSystem.mAcquiredSkills에 등록
+    │       │
+    │       ├── 캐릭터 기본 스킬 추가
+    │       │   └── levelSystem.mAcquiredSkills에 등록
+    │       │
+    │       └── 장비 스탯 보너스 적용
+    │           └── player.mBaseStats 업데이트
+    │
+    ▼
+[게임 플레이]
+    │
+    ├── 일시정지 메뉴
+    │   └── 습득 스킬 목록 표시 (장비/캐릭터 스킬 포함)
+    │
+    ▼
+[게임 종료]
+    └── 로비로 복귀 (장비는 영구 저장되어 유지)
+```
+
+### 9.8 기술적 변경 요약
+
+| 항목 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| 장비 저장 | 게임 인스턴스 (EquipmentSystem) | 영구 저장 (ProgressSystem) |
+| 장비 관리 UI 위치 | 일시정지 메뉴 | 로비 |
+| 캐릭터 기본 속성 | baseWeaponId (무기 ID) | baseSkillId (스킬 ID) |
+| 게임 시작 스킬 | 1개 (무기 스킬) | 2개 (장비 무기 + 캐릭터 기본) |
+| 스킬 습득 등록 | 레벨업 시에만 | 게임 시작 시에도 등록 |
+| 장비 스탯 | ActorStats | EquipmentStats (단순화) |
+
+### 9.9 관련 파일 목록
+
+| 파일 | 변경 유형 | 설명 |
+|------|----------|------|
+| `lib/data/models/progress_data.dart` | 수정 | EquipmentInstanceData, EquipmentProgressData 추가 |
+| `lib/data/models/equipment_data.dart` | 수정 | EquipmentStats, skillId 필드 추가 |
+| `lib/data/models/character_data.dart` | 수정 | baseWeaponId → baseSkillId |
+| `lib/game/systems/progress_system.dart` | 수정 | 장비 관리 CRUD 메서드 추가 |
+| `lib/game/vam_game.dart` | 수정 | InitializeStarterSkills, _applyEquipmentBonuses 추가 |
+| `lib/game/components/actors/player.dart` | 수정 | 초기 스킬 설정 호출 변경 |
+| `lib/game/systems/weapon_system.dart` | 수정 | Reset() 자동 장착 제거 |
+| `lib/presentation/screens/main_lobby_screen.dart` | 수정 | 장비 관리 버튼 추가 |
+| `lib/presentation/screens/equipment_management_screen.dart` | 신규 | 로비용 장비 관리 화면 |
+| `lib/presentation/screens/character_select_screen.dart` | 수정 | baseSkillId 사용 |
+| `lib/presentation/overlays/pause_overlay.dart` | 수정 | 장비 관리 버튼 제거 |

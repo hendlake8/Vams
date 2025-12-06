@@ -9,7 +9,7 @@ class CharacterData {
   final String description;
   final CharacterRarity rarity;
   final ActorStats baseStats;
-  final String baseWeaponId;  // 캐릭터 기본 무기
+  final String baseSkillId;  // 캐릭터 기본 스킬 (게임 시작 시 장비 무기 스킬과 함께 획득)
   final Color color;  // 캐릭터 대표 색상
 
   const CharacterData({
@@ -18,7 +18,7 @@ class CharacterData {
     required this.description,
     required this.rarity,
     required this.baseStats,
-    required this.baseWeaponId,
+    required this.baseSkillId,
     required this.color,
   });
 }
@@ -48,7 +48,7 @@ class DefaultCharacters {
       critRate: 5.0,
       critDmg: 150.0,
     ),
-    baseWeaponId: 'weapon_starter_wand',
+    baseSkillId: 'skill_energy_bolt',
     color: Colors.blue,
   );
 
@@ -66,7 +66,7 @@ class DefaultCharacters {
       critRate: 10.0,
       critDmg: 180.0,
     ),
-    baseWeaponId: 'weapon_spinning_sword',
+    baseSkillId: 'skill_spinning_blade',
     color: Colors.red,
   );
 
@@ -84,7 +84,7 @@ class DefaultCharacters {
       critRate: 8.0,
       critDmg: 160.0,
     ),
-    baseWeaponId: 'weapon_fire_staff',
+    baseSkillId: 'skill_fire_burst',
     color: Colors.orange,
   );
 
@@ -102,7 +102,7 @@ class DefaultCharacters {
       critRate: 15.0,
       critDmg: 170.0,
     ),
-    baseWeaponId: 'weapon_poison_bow',
+    baseSkillId: 'skill_poison_arrow',
     color: Colors.green,
   );
 
@@ -120,7 +120,7 @@ class DefaultCharacters {
       critRate: 12.0,
       critDmg: 200.0,
     ),
-    baseWeaponId: 'weapon_lightning_staff',
+    baseSkillId: 'skill_chain_lightning',
     color: Colors.purple,
   );
 
