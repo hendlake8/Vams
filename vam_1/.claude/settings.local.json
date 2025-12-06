@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Bash(cat:*)",
+      "WebSearch",
+      "mcp__serena__list_dir",
+      "Bash(if [ -d \"Report/Logs\" ])",
+      "Bash(then echo \"폴더 존재함\")",
+      "Bash(else echo \"폴더 없음\")",
+      "Bash(fi)"
+    ],
+    "deny": [],
+    "ask": []
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell -NoProfile -Command \"[Console]::InputEncoding = [System.Text.Encoding]::UTF8; $json = [Console]::In.ReadToEnd(); $data = $json | ConvertFrom-Json; $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'; $prompt = $data.prompt; $logPath = 'Report/Logs/prompt_log.md'; if (-not (Test-Path 'Report/Logs')) { New-Item -ItemType Directory -Path 'Report/Logs' -Force | Out-Null }; $content = \\\"---`r`n### $timestamp`r`n$prompt`r`n`r`n\\\"; [System.IO.File]::AppendAllText($logPath, $content, [System.Text.UTF8Encoding]::new($false))\""
+          }
+        ]
+      }
+    ]
+  }
+}
