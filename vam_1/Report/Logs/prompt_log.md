@@ -174,3 +174,7 @@ Release/{yyyy-MM-dd}/Vam_{MM-dd-hh-mm}.apk 경로로 Release 빌드 되도록 �
 /sc:document 현재까지 구현 및 수정된 사항 문서 업데이트해줘
 구현 내용 문서와 기능적인 기획서랑 분리해서 각각 문서에 해줘
 
+---
+### 2025-12-06 14:30:30
+/sc:implement 다음 단계 구현
+
