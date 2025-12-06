@@ -215,14 +215,30 @@ class SkillSystem {
     switch (skill.id) {
       case 'skill_swift_boots':
         mSpeedBonus = 0.05 * level; // 레벨당 5% 속도 증가
+        Logger.game('Swift Boots applied: +${(mSpeedBonus * 100).toInt()}% speed');
         break;
       case 'skill_vital_heart':
         mHealthBonus = 0.10 * level; // 레벨당 10% 체력 증가
+        _applyHealthBonus();
+        Logger.game('Vital Heart applied: +${(mHealthBonus * 100).toInt()}% HP');
         break;
       case 'skill_power_gauntlet':
         mDamageBonus = 0.08 * level; // 레벨당 8% 공격력 증가
+        Logger.game('Power Gauntlet applied: +${(mDamageBonus * 100).toInt()}% damage');
         break;
     }
+  }
+
+  /// 체력 보너스 적용 (최대 체력 증가 + 현재 체력 비례 회복)
+  void _applyHealthBonus() {
+    final player = mGame.player;
+    final baseHp = player.mBaseStats.hp;
+    final newMaxHp = (baseHp * (1 + mHealthBonus)).round();
+
+    // 현재 체력 비율 유지
+    final hpRatio = player.mCurrentHp / player.mMaxHp;
+    player.mMaxHp = newMaxHp;
+    player.mCurrentHp = (newMaxHp * hpRatio).round().clamp(1, newMaxHp);
   }
 
   /// 가장 가까운 몬스터 찾기

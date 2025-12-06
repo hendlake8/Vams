@@ -112,7 +112,10 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
     if (!mIsAlive) return;
 
     if (direction.length > 0) {
-      position += direction * mBaseStats.spd * 60 * dt;
+      // 패시브 이동속도 보너스 적용
+      final speedBonus = game.skillSystem.speedBonus;
+      final effectiveSpeed = mBaseStats.spd * (1 + speedBonus);
+      position += direction * effectiveSpeed * 60 * dt;
     }
   }
 
