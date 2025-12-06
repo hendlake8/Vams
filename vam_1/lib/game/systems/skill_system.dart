@@ -308,13 +308,14 @@ class EquippedSkill {
 /// 스킬 투사체
 class SkillProjectile extends PositionComponent with HasGameReference<VamGame>, CollisionCallbacks {
   final SkillData mSkillData;
-  final Vector2 mDirection;
+  Vector2 mDirection;
   final int mLevel;
   final double mDamage;
   final double mDamageBonus;
 
   double mDistanceTraveled = 0;
   int mPierceCount = 0;
+  int mChainCount = 0;  // 연쇄 횟수
   bool mIsActive = true;
   final Set<Monster> mHitMonsters = {};
 
@@ -326,16 +327,23 @@ class SkillProjectile extends PositionComponent with HasGameReference<VamGame>, 
     required SkillData skillData,
     required int level,
     double damageBonus = 0,
+    Set<Monster>? alreadyHit,  // 연쇄 시 이미 맞은 적 전달
+    int chainCount = 0,        // 현재 연쇄 횟수
   })  : mSkillData = skillData,
         mDirection = direction.normalized(),
         mLevel = level,
         mDamage = skillData.GetDamageAtLevel(level) * (1 + damageBonus),
         mDamageBonus = damageBonus,
+        mChainCount = chainCount,
         super(
           position: position,
           size: Vector2(14, 14),
           anchor: Anchor.center,
-        );
+        ) {
+    if (alreadyHit != null) {
+      mHitMonsters.addAll(alreadyHit);
+    }
+  }
 
   @override
   Future<void> onLoad() async {
@@ -377,7 +385,17 @@ class SkillProjectile extends PositionComponent with HasGameReference<VamGame>, 
       other.TakeDamage(mDamage.round());
       mHitMonsters.add(other);
 
-      if (mSkillData.piercing) {
+      // 연쇄 효과
+      if (mSkillData.chaining) {
+        mChainCount++;
+        if (mChainCount < mSkillData.chainCount) {
+          _chainToNextTarget(other);
+        } else {
+          Destroy();
+        }
+      }
+      // 관통 효과
+      else if (mSkillData.piercing) {
         mPierceCount++;
         if (mPierceCount >= mSkillData.pierceCount) {
           Destroy();
@@ -385,6 +403,32 @@ class SkillProjectile extends PositionComponent with HasGameReference<VamGame>, 
       } else {
         Destroy();
       }
+    }
+  }
+
+  /// 다음 타겟으로 연쇄
+  void _chainToNextTarget(Monster hitMonster) {
+    Monster? nextTarget;
+    double minDist = mSkillData.chainRange;
+
+    // 범위 내 가장 가까운 적 찾기 (이미 맞은 적 제외)
+    for (final component in game.world.children) {
+      if (component is Monster && component.mIsAlive && !mHitMonsters.contains(component)) {
+        final dist = (component.position - hitMonster.position).length;
+        if (dist < minDist) {
+          minDist = dist;
+          nextTarget = component;
+        }
+      }
+    }
+
+    if (nextTarget != null) {
+      // 방향 변경하여 다음 타겟으로 이동
+      mDirection = (nextTarget.position - position).normalized();
+      mDistanceTraveled = 0;  // 거리 리셋
+    } else {
+      // 다음 타겟 없으면 소멸
+      Destroy();
     }
   }
 

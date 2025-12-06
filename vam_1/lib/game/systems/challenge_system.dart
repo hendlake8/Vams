@@ -135,13 +135,13 @@ class ChallengeSystem {
   }
 
   /// 도전 클리어
-  void _onChallengeCleared() {
+  Future<void> _onChallengeCleared() async {
     if (mCurrentChallenge == null) return;
 
     Logger.game('Challenge cleared: ${mCurrentChallenge!.name}');
 
-    // 보상 지급
-    _grantRewards();
+    // 보상 지급 (async 처리)
+    await _grantRewards();
 
     // ProgressSystem에 기록 저장
     _saveProgress(cleared: true);
@@ -175,7 +175,7 @@ class ChallengeSystem {
   }
 
   /// 보상 지급
-  void _grantRewards() {
+  Future<void> _grantRewards() async {
     int totalGold = 0;
     int totalGems = 0;
 
@@ -195,7 +195,7 @@ class ChallengeSystem {
           if (reward.itemId != null) {
             final equipData = DefaultEquipments.GetById(reward.itemId!);
             if (equipData != null) {
-              ProgressSystem.instance.AddEquipment(reward.itemId!);
+              await ProgressSystem.instance.AddEquipment(reward.itemId!);
               Logger.game('Reward: Equipment ${equipData.name}');
             }
           }
@@ -210,7 +210,8 @@ class ChallengeSystem {
 
     // 재화 지급
     if (totalGold > 0 || totalGems > 0) {
-      ProgressSystem.instance.AddCurrency(gold: totalGold, gems: totalGems);
+      await ProgressSystem.instance.AddCurrency(gold: totalGold, gems: totalGems);
+      Logger.game('Currency granted: $totalGold gold, $totalGems gems');
     }
   }
 

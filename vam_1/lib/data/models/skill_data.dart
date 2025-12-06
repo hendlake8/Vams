@@ -16,6 +16,9 @@ class SkillData {
   final double spreadAngle;
   final bool piercing;
   final int pierceCount;
+  final bool chaining;      // 연쇄 효과 (적 적중 시 다음 적에게 튕김)
+  final int chainCount;     // 최대 연쇄 횟수
+  final double chainRange;  // 연쇄 탐색 범위
   final double duration;
   final Color color;
   final String? evolutionPairId;
@@ -36,6 +39,9 @@ class SkillData {
     this.spreadAngle = 0,
     this.piercing = false,
     this.pierceCount = 0,
+    this.chaining = false,
+    this.chainCount = 0,
+    this.chainRange = 150,
     this.duration = 0,
     this.color = Colors.white,
     this.evolutionPairId,
@@ -170,8 +176,9 @@ class DefaultSkills {
     range: 300,
     projectileSpeed: 600,
     projectileCount: 1,
-    piercing: true,
-    pierceCount: 4,
+    chaining: true,
+    chainCount: 4,
+    chainRange: 150,
     color: Colors.yellow,
   );
 

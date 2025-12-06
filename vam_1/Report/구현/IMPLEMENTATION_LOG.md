@@ -1,6 +1,6 @@
 # 뱀서라이크 슈팅 게임 구현 내역서
 
-> 문서 버전: 1.8
+> 문서 버전: 1.9
 > 최종 수정일: 2025-12-07
 
 ---
@@ -18,6 +18,8 @@
 9. [장비 시스템 아키텍처 변경](#9-장비-시스템-아키텍처-변경)
 10. [순찰/상점 시스템](#10-순찰상점-시스템)
 11. [스프라이트 시스템](#11-스프라이트-시스템)
+12. [몬스터 공격 시스템](#12-몬스터-공격-시스템)
+13. [스킬 연쇄 효과](#13-스킬-연쇄-효과)
 
 ---
 
@@ -2110,3 +2112,281 @@ lib/
 - [ ] 스킬 이펙트 스프라이트 추가
 - [ ] UI 아이콘 스프라이트 추가
 - [ ] 스프라이트 애니메이션 (SpriteSheet) 지원
+
+---
+
+## 12. 몬스터 공격 시스템
+
+### 12.1 개요
+
+기존 몬스터는 플레이어 추적 및 접촉 데미지만 가능했으나, 엘리트와 보스에게 고유 공격 패턴을 추가하여 전투 다양성 확보.
+
+### 12.2 엘리트 원거리 공격
+
+#### 공격 사양
+
+| 항목 | 값 |
+|------|-----|
+| 쿨다운 | 0.8초 |
+| 투사체 속도 | 300 |
+| 데미지 | 8 |
+| 최대 사거리 | 500 |
+| 투사체 색상 | 주황색 (`Colors.orange.shade700`) |
+
+#### 구현 방식
+
+```dart
+// Monster 클래스 내부
+void _updateEliteAttack(double dt) {
+  mEliteAttackTimer -= dt;
+  if (mEliteAttackTimer <= 0) {
+    _fireProjectile();
+    mEliteAttackTimer = ELITE_ATTACK_COOLDOWN;
+  }
+}
+
+void _fireProjectile() {
+  if (!game.player.mIsAlive) return;
+  final direction = (game.player.position - position).normalized();
+  final projectile = MonsterProjectile(
+    position: position.clone(),
+    direction: direction,
+    speed: ELITE_PROJECTILE_SPEED,
+    damage: ELITE_PROJECTILE_DAMAGE,
+  );
+  game.world.add(projectile);
+}
+```
+
+### 12.3 보스 돌진 공격
+
+#### 공격 사양
+
+| 항목 | 값 |
+|------|-----|
+| 쿨다운 | 15초 (초기 5초) |
+| 준비 시간 | 2초 |
+| 속도 배율 | 6x (기본속도의 6배) |
+| 돌진 폭 | 200 |
+| 돌진 거리 | 600 |
+| 데미지 | 30 |
+
+#### 상태 머신
+
+```
+BossAttackState.idle
+    │ (쿨다운 완료)
+    ▼
+BossAttackState.preparing
+    │ (2초 대기 + 전조 표시)
+    ▼
+BossAttackState.charging
+    │ (600 거리 돌진)
+    ▼
+BossAttackState.idle (쿨다운 리셋)
+```
+
+#### 전조 표시 (ChargeIndicator)
+
+- 빨간색 반투명 직사각형
+- 보스 위치에서 돌진 방향으로 200x600 영역 표시
+- 깜빡임 효과로 위험 경고
+- 회전 각도: `atan2(direction.y, direction.x) - pi / 2`
+
+#### 피격 판정
+
+```dart
+void _checkChargeHit() {
+  if (!game.player.mIsAlive || game.player.isInvincible) return;
+
+  final toPlayer = playerPos - position;
+  final perpDistance = _perpendicularDistance(toPlayer, mBossChargeDirection!);
+
+  // 돌진 경로 폭 내 + 근접 거리 체크
+  if (perpDistance <= BOSS_CHARGE_WIDTH / 2) {
+    if (toPlayer.length <= size.x / 2 + 30) {
+      game.player.TakeDamage(BOSS_CHARGE_DAMAGE);
+    }
+  }
+}
+```
+
+### 12.4 관련 파일
+
+| 파일 | 변경 유형 | 설명 |
+|------|----------|------|
+| `lib/game/components/actors/monster.dart` | 수정 | 엘리트/보스 공격 로직 추가 |
+| `lib/game/components/projectiles/monster_projectile.dart` | 신규 | 엘리트 원거리 투사체 |
+| `lib/game/components/effects/charge_indicator.dart` | 신규 | 보스 돌진 전조 표시 |
+
+---
+
+## 13. 스킬 연쇄 효과
+
+### 13.1 개요
+
+기존 관통(piercing) 효과와 별개로, 적 적중 시 근처 다른 적에게 튕기는 연쇄(chaining) 효과 구현.
+
+### 13.2 SkillData 확장
+
+```dart
+class SkillData {
+  // 기존 필드...
+  final bool piercing;
+  final int pierceCount;
+
+  // 신규 필드
+  final bool chaining;      // 연쇄 효과 활성화
+  final int chainCount;     // 최대 연쇄 횟수
+  final double chainRange;  // 연쇄 탐색 범위 (기본 150)
+}
+```
+
+### 13.3 연쇄 로직 (SkillProjectile)
+
+```dart
+void onCollision(...) {
+  if (other is Monster && other.mIsAlive) {
+    other.TakeDamage(mDamage.round());
+    mHitMonsters.add(other);
+
+    // 연쇄 효과
+    if (mSkillData.chaining) {
+      mChainCount++;
+      if (mChainCount < mSkillData.chainCount) {
+        _chainToNextTarget(other);
+      } else {
+        Destroy();
+      }
+    }
+    // 관통 효과
+    else if (mSkillData.piercing) { ... }
+    else { Destroy(); }
+  }
+}
+
+void _chainToNextTarget(Monster hitMonster) {
+  Monster? nextTarget;
+  double minDist = mSkillData.chainRange;
+
+  // 범위 내 가장 가까운 미적중 적 찾기
+  for (final component in game.world.children) {
+    if (component is Monster && component.mIsAlive && !mHitMonsters.contains(component)) {
+      final dist = (component.position - hitMonster.position).length;
+      if (dist < minDist) {
+        minDist = dist;
+        nextTarget = component;
+      }
+    }
+  }
+
+  if (nextTarget != null) {
+    mDirection = (nextTarget.position - position).normalized();
+    mDistanceTraveled = 0;
+  } else {
+    Destroy();
+  }
+}
+```
+
+### 13.4 적용 스킬: 번개 연쇄
+
+```dart
+static const SkillData CHAIN_LIGHTNING = SkillData(
+  id: 'skill_chain_lightning',
+  name: '번개 연쇄',
+  description: '적 사이를 튕기는 번개를 발사합니다.',
+  category: SkillCategory.projectile,
+  chaining: true,
+  chainCount: 4,
+  chainRange: 150,
+  // ...
+);
+```
+
+### 13.5 동작 흐름
+
+```
+[플레이어] → [번개] → [적1] → [방향전환] → [적2] → [방향전환] → [적3] → [방향전환] → [적4] → [소멸]
+```
+
+- 최대 4회 연쇄 (chainCount: 4)
+- 범위 내(150px) 다음 타겟 없으면 즉시 소멸
+- 이미 맞은 적은 제외 (`mHitMonsters`)
+
+### 13.6 관련 파일
+
+| 파일 | 변경 유형 | 설명 |
+|------|----------|------|
+| `lib/data/models/skill_data.dart` | 수정 | chaining, chainCount, chainRange 필드 추가 |
+| `lib/game/systems/skill_system.dart` | 수정 | SkillProjectile에 연쇄 로직 추가 |
+
+---
+
+## 14. 버그 수정 (v1.9)
+
+### 14.1 보스 돌진 전조 방향 오류
+
+**증상:** 전조 표시가 실제 돌진 방향과 반대로 표시됨
+
+**원인:** Flame Y축 좌표계(아래로 증가)에서 회전 각도 계산 오류
+
+**수정:**
+```dart
+// 변경 전
+angle: atan2(direction.y, direction.x) + pi / 2,
+
+// 변경 후
+angle: atan2(direction.y, direction.x) - pi / 2,
+```
+
+### 14.2 경험치 젬 수집 오류
+
+**증상:** 플레이어 위치에 파란 점(경험치 젬)이 남아있음
+
+**원인:** 충돌 감지 간헐적 실패로 젬이 수집되지 않음
+
+**수정:** 거리 기반 직접 수집 로직 추가
+```dart
+// ExpGem.update()
+if (mIsBeingPulled && distance < 20) {
+  _collect();
+}
+```
+
+### 14.3 도전모드 보상 미지급
+
+**증상:** 도전모드 클리어 시 보석이 지급되지 않음
+
+**원인:** `_grantRewards()`에서 async 함수를 await 없이 호출
+
+**수정:**
+```dart
+// 변경 전
+void _grantRewards() {
+  ProgressSystem.instance.AddCurrency(...);  // await 없음
+}
+
+// 변경 후
+Future<void> _grantRewards() async {
+  await ProgressSystem.instance.AddCurrency(...);
+}
+```
+
+### 14.4 번개 연쇄 관통 동작 오류
+
+**증상:** 번개 연쇄 스킬이 연쇄 대신 관통처럼 동작
+
+**원인:** `CHAIN_LIGHTNING` 데이터에 `piercing: true` 설정
+
+**수정:** 연쇄 효과 시스템 신규 구현 및 데이터 수정
+```dart
+// 변경 전
+piercing: true,
+pierceCount: 4,
+
+// 변경 후
+chaining: true,
+chainCount: 4,
+chainRange: 150,
+```

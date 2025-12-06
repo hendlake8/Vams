@@ -71,7 +71,18 @@ class ExpGem extends PositionComponent with HasGameReference<VamGame>, Collision
     if (mIsBeingPulled) {
       final direction = (player.position - position).normalized();
       position += direction * MAGNET_SPEED * 60 * dt;
+
+      // 거리 기반 직접 수집 (충돌 감지 보완)
+      if (distance < 20) {
+        _collect();
+      }
     }
+  }
+
+  void _collect() {
+    if (!isMounted) return;
+    game.player.GainExp(mExpAmount);
+    removeFromParent();
   }
 
   @override
@@ -79,9 +90,7 @@ class ExpGem extends PositionComponent with HasGameReference<VamGame>, Collision
     super.onCollision(intersectionPoints, other);
 
     if (other is Player) {
-      // 경험치 획득
-      other.GainExp(mExpAmount);
-      removeFromParent();
+      _collect();
     }
   }
 }
