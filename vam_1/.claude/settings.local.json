@@ -8,7 +8,17 @@
       "Bash(if [ -d \"Report/Logs\" ])",
       "Bash(then echo \"폴더 존재함\")",
       "Bash(else echo \"폴더 없음\")",
-      "Bash(fi)"
+      "Bash(fi)",
+      "Bash(flutter pub get:*)",
+      "Bash(flutter analyze:*)",
+      "Bash(flutter build:*)",
+      "Bash(./gradlew assembleDebug:*)",
+      "Bash(flutter doctor:*)",
+      "Bash(flutter clean:*)",
+      "Bash(java -version:*)",
+      "Bash(./gradlew:*)",
+      "Bash(dir:*)",
+      "Bash(set JAVA_HOME=C:Program FilesEclipse Adoptiumjdk-21.0.9.10-hotspot)"
     ],
     "deny": [],
     "ask": []

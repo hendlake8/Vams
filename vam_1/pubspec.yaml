@@ -1,5 +1,5 @@
 name: vam_1
-description: "A new Flutter project."
+description: "뱀서라이크 슈팅 게임"
 publish_to: 'none'
 version: 0.1.0
 
@@ -10,10 +10,43 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # 게임 엔진
+  flame: ^1.14.0
+  flame_audio: ^2.1.0
+
+  # 상태 관리
+  flutter_riverpod: ^2.4.0
+
+  # 로컬 저장소
+  shared_preferences: ^2.2.0
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # 유틸리티
+  uuid: ^4.2.0
+  collection: ^1.18.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  hive_generator: ^2.0.1
+  build_runner: ^2.4.0
 
 flutter:
   uses-material-design: true
+
+  assets:
+    - assets/images/actors/heroes/
+    - assets/images/actors/monsters/
+    - assets/images/actors/bosses/
+    - assets/images/actors/pets/
+    - assets/images/backgrounds/
+    - assets/images/weapons/
+    - assets/images/effects/
+    - assets/images/items/
+    - assets/images/ui/
+    - assets/images/maps/
+    - assets/audio/bgm/
+    - assets/audio/sfx/
+    - assets/data/
