@@ -12,6 +12,7 @@ import 'systems/spawn_system.dart';
 import 'systems/wave_system.dart';
 import 'systems/level_system.dart';
 import 'systems/weapon_system.dart';
+import 'systems/skill_system.dart';
 import 'input/joystick_controller.dart';
 
 /// 메인 게임 클래스
@@ -27,6 +28,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   late WaveSystem waveSystem;
   late LevelSystem levelSystem;
   late WeaponSystem weaponSystem;
+  late SkillSystem skillSystem;
 
   // 게임 상태
   double mElapsedTime = 0;
@@ -59,9 +61,10 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     waveSystem = WaveSystem(this);
     levelSystem = LevelSystem(this);
     weaponSystem = WeaponSystem(this);
+    skillSystem = SkillSystem(this);
 
-    // 기본 무기 장착
-    weaponSystem.AddWeapon('basic_bullet', level: 1);
+    // 기본 무기 장착 (초보자의 지팡이 → 에너지 볼트 스킬 자동 활성화)
+    weaponSystem.EquipWeapon('weapon_starter_wand', level: 1);
 
     // 배경 추가
     background = TiledBackground();
@@ -95,6 +98,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     waveSystem.Update(dt);
     spawnSystem.Update(dt);
     weaponSystem.Update(dt);
+    skillSystem.Update(dt);
   }
 
   /// 게임 일시정지
@@ -157,6 +161,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     waveSystem.Reset();
     levelSystem.Reset();
     weaponSystem.Reset();
+    skillSystem.Reset();
 
     resumeEngine();
     Logger.game('Game Restarted');

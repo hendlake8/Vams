@@ -1,138 +1,97 @@
-import 'package:flutter/material.dart';
-
 /// 무기 데이터 모델
+/// 무기는 기본 스킬을 내장하고 있음
 class WeaponData {
   final String id;
   final String name;
-  final WeaponType type;
-  final double baseDamage;
-  final double cooldown;
-  final double projectileSpeed;
-  final double range;
-  final int projectileCount;
-  final double spreadAngle;
-  final bool piercing;
-  final int pierceCount;
-  final Color color;
+  final String description;
+  final WeaponRarity rarity;
+  final String baseSkillId;  // 무기에 내장된 기본 스킬 ID
 
   const WeaponData({
     required this.id,
     required this.name,
-    required this.type,
-    required this.baseDamage,
-    required this.cooldown,
-    required this.projectileSpeed,
-    required this.range,
-    this.projectileCount = 1,
-    this.spreadAngle = 0,
-    this.piercing = false,
-    this.pierceCount = 0,
-    this.color = Colors.yellow,
+    required this.description,
+    required this.rarity,
+    required this.baseSkillId,
   });
-
-  /// 레벨별 데미지 계산
-  double GetDamageAtLevel(int level) {
-    const multipliers = [1.0, 1.0, 1.3, 1.6, 2.0, 2.5];
-    return baseDamage * multipliers[level.clamp(0, 5)];
-  }
-
-  /// 레벨별 쿨다운 계산
-  double GetCooldownAtLevel(int level) {
-    // 레벨 3, 5에서 쿨다운 감소
-    if (level >= 5) return cooldown * 0.7;
-    if (level >= 3) return cooldown * 0.85;
-    return cooldown;
-  }
-
-  /// 레벨별 투사체 수
-  int GetProjectileCountAtLevel(int level) {
-    // 레벨 2, 4에서 투사체 +1
-    int count = projectileCount;
-    if (level >= 2) count++;
-    if (level >= 4) count++;
-    return count;
-  }
 }
 
-enum WeaponType {
-  projectile,   // 일반 투사체
-  spread,       // 산탄
-  orbit,        // 궤도
-  aura,         // 오라 (범위)
-  chain,        // 연쇄
+enum WeaponRarity {
+  common,
+  rare,
+  epic,
+  legendary,
 }
 
 /// 기본 무기 정의
 class DefaultWeapons {
   DefaultWeapons._();
 
-  /// 기본 탄환 - 가장 가까운 적에게 자동 발사
-  static const WeaponData BASIC_BULLET = WeaponData(
-    id: 'basic_bullet',
-    name: '기본 탄환',
-    type: WeaponType.projectile,
-    baseDamage: 10,
-    cooldown: 0.5,
-    projectileSpeed: 400,
-    range: 300,
-    projectileCount: 1,
-    piercing: false,
-    color: Colors.yellow,
+  /// 초보자의 지팡이 - 에너지 볼트 발사
+  static const WeaponData STARTER_WAND = WeaponData(
+    id: 'weapon_starter_wand',
+    name: '초보자의 지팡이',
+    description: '에너지 볼트를 발사하는 기본 지팡이',
+    rarity: WeaponRarity.common,
+    baseSkillId: 'skill_energy_bolt',
   );
 
-  /// 산탄총 - 부채꼴로 발사
-  static const WeaponData SHOTGUN = WeaponData(
-    id: 'shotgun',
-    name: '산탄총',
-    type: WeaponType.spread,
-    baseDamage: 5,
-    cooldown: 1.0,
-    projectileSpeed: 350,
-    range: 200,
-    projectileCount: 5,
-    spreadAngle: 60,
-    piercing: false,
-    color: Colors.orange,
+  /// 회전 검 - 회전 검 스킬
+  static const WeaponData SPINNING_SWORD = WeaponData(
+    id: 'weapon_spinning_sword',
+    name: '회전 검',
+    description: '주변을 회전하며 적을 베는 검',
+    rarity: WeaponRarity.common,
+    baseSkillId: 'skill_spinning_blade',
   );
 
-  /// 관통탄 - 적을 관통
-  static const WeaponData PIERCING_SHOT = WeaponData(
-    id: 'piercing_shot',
-    name: '관통탄',
-    type: WeaponType.projectile,
-    baseDamage: 15,
-    cooldown: 0.8,
-    projectileSpeed: 500,
-    range: 500,
-    projectileCount: 1,
-    piercing: true,
-    pierceCount: 5,
-    color: Colors.cyan,
+  /// 화염 지팡이 - 화염 폭발
+  static const WeaponData FIRE_STAFF = WeaponData(
+    id: 'weapon_fire_staff',
+    name: '화염 지팡이',
+    description: '주변에 화염 폭발을 일으키는 지팡이',
+    rarity: WeaponRarity.rare,
+    baseSkillId: 'skill_fire_burst',
   );
 
-  /// 오라 - 주변 적에게 지속 피해
-  static const WeaponData AURA = WeaponData(
-    id: 'aura',
-    name: '보호막',
-    type: WeaponType.aura,
-    baseDamage: 3,
-    cooldown: 0.3,
-    projectileSpeed: 0,
-    range: 100,
-    projectileCount: 0,
-    color: Colors.purple,
+  /// 독 활 - 독 화살 발사
+  static const WeaponData POISON_BOW = WeaponData(
+    id: 'weapon_poison_bow',
+    name: '독 활',
+    description: '관통하는 독 화살을 발사하는 활',
+    rarity: WeaponRarity.rare,
+    baseSkillId: 'skill_poison_arrow',
+  );
+
+  /// 번개 지팡이 - 번개 연쇄
+  static const WeaponData LIGHTNING_STAFF = WeaponData(
+    id: 'weapon_lightning_staff',
+    name: '번개 지팡이',
+    description: '적 사이를 튕기는 번개를 발사',
+    rarity: WeaponRarity.epic,
+    baseSkillId: 'skill_chain_lightning',
   );
 
   static List<WeaponData> get all => [
-    BASIC_BULLET,
-    SHOTGUN,
-    PIERCING_SHOT,
-    AURA,
+    STARTER_WAND,
+    SPINNING_SWORD,
+    FIRE_STAFF,
+    POISON_BOW,
+    LIGHTNING_STAFF,
   ];
 
   static WeaponData? GetById(String id) {
     try {
       return all.firstWhere((w) => w.id == id);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// 스킬 ID로 무기 찾기
+  static WeaponData? GetBySkillId(String skillId) {
+    try {
+      return all.firstWhere((w) => w.baseSkillId == skillId);
     } catch (_) {
       return null;
     }

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../core/utils/logger.dart';
 import '../../../data/models/actor_stats.dart';
 import '../../vam_game.dart';
+import '../effects/damage_text.dart';
 import '../items/exp_gem.dart';
 import 'player.dart';
 
@@ -128,10 +129,18 @@ class Monster extends PositionComponent with HasGameReference<VamGame>, Collisio
   }
 
   /// 피해 받기
-  void TakeDamage(int damage) {
+  void TakeDamage(int damage, {bool isCritical = false}) {
     if (!mIsAlive) return;
 
     mCurrentHp -= damage;
+
+    // 데미지 텍스트 표시
+    final damageText = DamageText(
+      position: position.clone() + Vector2(0, -size.y / 2),
+      damage: damage,
+      isCritical: isCritical,
+    );
+    game.world.add(damageText);
 
     // 피격 이펙트 (색상 변경)
     mBody.paint.color = Colors.white;

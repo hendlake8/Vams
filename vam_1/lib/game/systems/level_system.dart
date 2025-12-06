@@ -1,12 +1,17 @@
+import 'dart:math';
+
 import '../../core/constants/game_constants.dart';
 import '../../core/utils/logger.dart';
+import '../../data/models/skill_data.dart';
 import '../vam_game.dart';
 
 /// 레벨업 시스템
 class LevelSystem {
   final VamGame mGame;
+  final Random _random = Random();
 
-  final List<String> mAcquiredSkills = [];
+  // 습득한 스킬 및 레벨 추적
+  final Map<String, int> mAcquiredSkills = {};
 
   LevelSystem(this.mGame);
 
@@ -17,52 +22,56 @@ class LevelSystem {
         (level - 1) * GameConstants.EXP_INCREMENT;
   }
 
-  /// 스킬 선택지 생성
+  /// 스킬 선택지 생성 (실제 구현된 스킬만)
   List<SkillChoice> GenerateSkillChoices() {
-    // TODO: 실제 스킬 테이블에서 가져오기
-    final choices = <SkillChoice>[];
+    final availableSkills = <SkillData>[];
 
-    // 임시 선택지
-    choices.add(SkillChoice(
-      skillId: 'SK_A001',
-      name: '축구공',
-      description: '튕기는 공을 발사합니다.',
-      isNew: !mAcquiredSkills.contains('SK_A001'),
-      currentLevel: _getSkillLevel('SK_A001'),
-    ));
+    // 실제 구현된 스킬 목록에서 선택 가능한 스킬 필터링
+    for (final skill in DefaultSkills.all) {
+      final currentLevel = mAcquiredSkills[skill.id] ?? 0;
 
-    choices.add(SkillChoice(
-      skillId: 'SK_A002',
-      name: '화염병',
-      description: '불타는 영역을 생성합니다.',
-      isNew: !mAcquiredSkills.contains('SK_A002'),
-      currentLevel: _getSkillLevel('SK_A002'),
-    ));
+      // 최대 레벨 미만인 스킬만 선택 가능
+      if (currentLevel < skill.maxLevel) {
+        availableSkills.add(skill);
+      }
+    }
 
-    choices.add(SkillChoice(
-      skillId: 'SK_P001',
-      name: '운동화',
-      description: '이동 속도가 증가합니다.',
-      isNew: !mAcquiredSkills.contains('SK_P001'),
-      currentLevel: _getSkillLevel('SK_P001'),
-    ));
+    // 랜덤하게 3개 선택 (또는 가능한 만큼)
+    availableSkills.shuffle(_random);
+    final selectedSkills = availableSkills.take(GameConstants.SKILL_CHOICES_COUNT).toList();
 
-    return choices;
-  }
-
-  int _getSkillLevel(String skillId) {
-    return mAcquiredSkills.where((s) => s == skillId).length;
+    // SkillChoice로 변환
+    return selectedSkills.map((skill) {
+      final currentLevel = mAcquiredSkills[skill.id] ?? 0;
+      return SkillChoice(
+        skillId: skill.id,
+        name: skill.name,
+        description: skill.description,
+        isNew: currentLevel == 0,
+        currentLevel: currentLevel,
+        rarity: skill.rarity,
+      );
+    }).toList();
   }
 
   /// 스킬 적용
   void ApplySkill(String skillId) {
-    mAcquiredSkills.add(skillId);
-    final level = _getSkillLevel(skillId);
+    final currentLevel = mAcquiredSkills[skillId] ?? 0;
+    final newLevel = currentLevel + 1;
+    mAcquiredSkills[skillId] = newLevel;
 
-    Logger.game('Skill applied: $skillId (Level $level)');
+    Logger.game('Skill applied: $skillId (Level $newLevel)');
 
-    // TODO: 실제 스킬 효과 적용
-    mGame.player.AddSkill(skillId, level);
+    // SkillSystem에 스킬 추가/업그레이드
+    mGame.skillSystem.AddSkill(skillId, level: newLevel);
+
+    // Player에도 스킬 추가 (UI 표시용)
+    mGame.player.AddSkill(skillId, newLevel);
+  }
+
+  /// 특정 스킬 레벨 조회
+  int GetSkillLevel(String skillId) {
+    return mAcquiredSkills[skillId] ?? 0;
   }
 
   /// 리셋
@@ -78,6 +87,7 @@ class SkillChoice {
   final String description;
   final bool isNew;
   final int currentLevel;
+  final SkillRarity rarity;
 
   const SkillChoice({
     required this.skillId,
@@ -85,6 +95,7 @@ class SkillChoice {
     required this.description,
     required this.isNew,
     required this.currentLevel,
+    this.rarity = SkillRarity.common,
   });
 
   int get nextLevel => currentLevel + 1;
