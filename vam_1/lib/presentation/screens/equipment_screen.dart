@@ -4,6 +4,7 @@ import '../../core/constants/design_constants.dart';
 import '../../data/models/actor_stats.dart';
 import '../../data/models/equipment_data.dart';
 import '../../game/systems/equipment_system.dart';
+import 'fusion_screen.dart';
 
 /// 장비 관리 화면
 class EquipmentScreen extends StatefulWidget {
@@ -48,6 +49,22 @@ class _EquipmentScreenState extends State<EquipmentScreen> with SingleTickerProv
       appBar: AppBar(
         backgroundColor: DesignConstants.COLOR_SURFACE,
         title: const Text('장비 관리'),
+        actions: [
+          // 합성 버튼
+          IconButton(
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => FusionScreen(
+                    equipmentSystem: widget.equipmentSystem,
+                  ),
+                ),
+              ).then((_) => setState(() {}));  // 돌아오면 새로고침
+            },
+            icon: const Icon(Icons.auto_awesome, color: Colors.amber),
+            tooltip: '장비 합성',
+          ),
+        ],
         bottom: TabBar(
           controller: mTabController,
           tabs: EquipmentSlot.values.map((slot) {

@@ -188,6 +188,101 @@ class EquipmentSystem {
     return AddEquipment(candidates[random.nextInt(candidates.length)]);
   }
 
+  /// 장비 합성 (동일 등급 3개 → 상위 등급 1개)
+  /// 반환: 합성 결과 장비 (실패 시 null)
+  EquipmentInstance? FuseEquipments(List<EquipmentInstance> materials) {
+    // 검증: 정확히 3개 필요
+    if (materials.length != 3) {
+      Logger.game('Fusion failed: Need exactly 3 materials');
+      return null;
+    }
+
+    // 검증: 모두 같은 슬롯
+    final slot = materials.first.data.slot;
+    if (!materials.every((e) => e.data.slot == slot)) {
+      Logger.game('Fusion failed: All materials must be same slot');
+      return null;
+    }
+
+    // 검증: 모두 같은 등급
+    final rarity = materials.first.data.rarity;
+    if (!materials.every((e) => e.data.rarity == rarity)) {
+      Logger.game('Fusion failed: All materials must be same rarity');
+      return null;
+    }
+
+    // 검증: Legendary는 합성 불가
+    if (rarity == EquipmentRarity.legendary) {
+      Logger.game('Fusion failed: Cannot fuse legendary equipment');
+      return null;
+    }
+
+    // 검증: 장착 중인 장비는 합성 불가
+    if (materials.any((e) => e.isEquipped)) {
+      Logger.game('Fusion failed: Cannot fuse equipped items');
+      return null;
+    }
+
+    // 상위 등급 결정
+    final nextRarity = EquipmentRarity.values[rarity.index + 1];
+
+    // 해당 슬롯 + 상위 등급 장비 후보
+    final candidates = DefaultEquipments.all
+        .where((e) => e.slot == slot && e.rarity == nextRarity)
+        .toList();
+
+    if (candidates.isEmpty) {
+      Logger.game('Fusion failed: No higher rarity equipment available');
+      return null;
+    }
+
+    // 재료 제거
+    for (final material in materials) {
+      mInventory.remove(material);
+    }
+
+    // 랜덤 선택
+    final random = Random();
+    final resultData = candidates[random.nextInt(candidates.length)];
+
+    // 새 장비 생성 (레벨 1)
+    final result = AddEquipment(resultData, level: 1);
+
+    Logger.game('Fusion success: ${materials.map((e) => e.data.name).join(", ")} -> ${result.data.name}');
+    return result;
+  }
+
+  /// 합성 가능한 장비 그룹 조회 (슬롯+등급별)
+  Map<String, List<EquipmentInstance>> GetFusionCandidates() {
+    final Map<String, List<EquipmentInstance>> groups = {};
+
+    for (final equipment in mInventory) {
+      // 장착 중이거나 Legendary는 제외
+      if (equipment.isEquipped) continue;
+      if (equipment.data.rarity == EquipmentRarity.legendary) continue;
+
+      final key = '${equipment.data.slot.name}_${equipment.data.rarity.name}';
+      groups.putIfAbsent(key, () => []);
+      groups[key]!.add(equipment);
+    }
+
+    // 3개 이상인 그룹만 반환
+    groups.removeWhere((key, list) => list.length < 3);
+    return groups;
+  }
+
+  /// 특정 슬롯+등급의 합성 가능 여부
+  bool CanFuse(EquipmentSlot slot, EquipmentRarity rarity) {
+    if (rarity == EquipmentRarity.legendary) return false;
+
+    final count = mInventory
+        .where((e) => e.data.slot == slot &&
+                      e.data.rarity == rarity &&
+                      !e.isEquipped)
+        .length;
+    return count >= 3;
+  }
+
   /// 리셋
   void Reset() {
     for (final slot in EquipmentSlot.values) {
