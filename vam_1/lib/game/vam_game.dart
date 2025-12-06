@@ -3,6 +3,7 @@ import 'package:flame/components.dart';
 import 'package:flame/events.dart';
 import 'package:flutter/material.dart';
 
+import '../core/resources/sprite_manager.dart';
 import '../core/utils/screen_utils.dart';
 import '../core/utils/logger.dart';
 import '../data/models/character_data.dart';
@@ -55,6 +56,10 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     await super.onLoad();
 
     Logger.game('VamGame onLoad started');
+
+    // 스프라이트 매니저 초기화
+    await SpriteManager.instance.Initialize(this);
+    Logger.game('SpriteManager initialized');
 
     // 캐릭터 데이터 로드
     mCharacterData = DefaultCharacters.GetById(mCharacterId ?? 'char_commando')

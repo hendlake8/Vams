@@ -11,6 +11,7 @@ class CharacterData {
   final ActorStats baseStats;
   final String baseSkillId;  // 캐릭터 기본 스킬 (게임 시작 시 장비 무기 스킬과 함께 획득)
   final Color color;  // 캐릭터 대표 색상
+  final int spriteIndex;  // 스프라이트 인덱스 (hero_0.png → 0)
 
   const CharacterData({
     required this.id,
@@ -20,6 +21,7 @@ class CharacterData {
     required this.baseStats,
     required this.baseSkillId,
     required this.color,
+    this.spriteIndex = 0,
   });
 }
 
@@ -50,6 +52,7 @@ class DefaultCharacters {
     ),
     baseSkillId: 'skill_energy_bolt',
     color: Colors.blue,
+    spriteIndex: 0,  // hero_0.png
   );
 
   /// 검사 - 근접 캐릭터 (회전 검)
@@ -68,6 +71,7 @@ class DefaultCharacters {
     ),
     baseSkillId: 'skill_spinning_blade',
     color: Colors.red,
+    spriteIndex: 1,  // hero_1.png
   );
 
   /// 화염 마법사 - 범위 캐릭터 (화염 폭발)
@@ -86,6 +90,7 @@ class DefaultCharacters {
     ),
     baseSkillId: 'skill_fire_burst',
     color: Colors.orange,
+    spriteIndex: 2,  // hero_2.png
   );
 
   /// 궁수 - 관통 캐릭터 (독 화살)
@@ -104,6 +109,7 @@ class DefaultCharacters {
     ),
     baseSkillId: 'skill_poison_arrow',
     color: Colors.green,
+    spriteIndex: 3,  // hero_3.png
   );
 
   /// 번개 마법사 - 연쇄 캐릭터 (번개 연쇄)

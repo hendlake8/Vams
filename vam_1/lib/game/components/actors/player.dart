@@ -3,6 +3,7 @@ import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/constants/game_constants.dart';
+import '../../../core/resources/sprite_manager.dart';
 import '../../../core/utils/logger.dart';
 import '../../../data/models/actor_stats.dart';
 import '../../vam_game.dart';
@@ -27,7 +28,8 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
   bool get isInvincible => mInvincibilityTimer > 0;
 
   // 시각적 요소
-  late RectangleComponent mBody;
+  SpriteComponent? mSprite;
+  RectangleComponent? mFallbackBody;
 
   Player() : super(
     size: Vector2(48, 48),
@@ -45,12 +47,24 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
     mMaxHp = mBaseStats.hp;
     mCurrentHp = mMaxHp;
 
-    // 캐릭터 색상으로 시각적 표현
-    mBody = RectangleComponent(
-      size: size,
-      paint: Paint()..color = characterData.color,
-    );
-    add(mBody);
+    // 스프라이트 로드 시도
+    try {
+      final sprite = await SpriteManager.instance.GetHeroSprite(characterData.spriteIndex);
+      mSprite = SpriteComponent(
+        sprite: sprite,
+        size: size,
+      );
+      add(mSprite!);
+      Logger.game('Player sprite loaded: hero_${characterData.spriteIndex}.png');
+    } catch (e) {
+      // 스프라이트 로드 실패 시 폴백 (색상 사각형)
+      Logger.game('Player sprite load failed, using fallback: $e');
+      mFallbackBody = RectangleComponent(
+        size: size,
+        paint: Paint()..color = characterData.color,
+      );
+      add(mFallbackBody!);
+    }
 
     // 히트박스
     add(CircleHitbox(radius: 20));
@@ -70,12 +84,21 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
       mInvincibilityTimer -= dt;
 
       // 무적 시 깜빡임 효과
-      final characterColor = game.mCharacterData.color;
-      mBody.paint.color = (mInvincibilityTimer * 10).floor() % 2 == 0
-          ? characterColor
-          : characterColor.withValues(alpha: 0.3);
+      final isVisible = (mInvincibilityTimer * 10).floor() % 2 == 0;
+      if (mSprite != null) {
+        mSprite!.opacity = isVisible ? 1.0 : 0.3;
+      } else if (mFallbackBody != null) {
+        final characterColor = game.mCharacterData.color;
+        mFallbackBody!.paint.color = isVisible
+            ? characterColor
+            : characterColor.withValues(alpha: 0.3);
+      }
     } else {
-      mBody.paint.color = game.mCharacterData.color;
+      if (mSprite != null) {
+        mSprite!.opacity = 1.0;
+      } else if (mFallbackBody != null) {
+        mFallbackBody!.paint.color = game.mCharacterData.color;
+      }
     }
 
     // 스킬 업데이트
@@ -159,7 +182,11 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
   /// 사망
   void Die() {
     mIsAlive = false;
-    mBody.paint.color = Colors.grey;
+    if (mSprite != null) {
+      mSprite!.opacity = 0.5;
+    } else if (mFallbackBody != null) {
+      mFallbackBody!.paint.color = Colors.grey;
+    }
     Logger.game('Player died');
     game.GameOver();
   }
@@ -173,7 +200,11 @@ class Player extends PositionComponent with HasGameReference<VamGame>, Collision
     mIsAlive = true;
     mInvincibilityTimer = 0;
     mSkills.clear();
-    mBody.paint.color = game.mCharacterData.color;
+    if (mSprite != null) {
+      mSprite!.opacity = 1.0;
+    } else if (mFallbackBody != null) {
+      mFallbackBody!.paint.color = game.mCharacterData.color;
+    }
   }
 
   // Getters

@@ -2,6 +2,7 @@ import 'package:flame/collisions.dart';
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/resources/sprite_manager.dart';
 import '../../../core/utils/logger.dart';
 import '../../../data/models/actor_stats.dart';
 import '../../vam_game.dart';
@@ -25,7 +26,8 @@ class Monster extends PositionComponent with HasGameReference<VamGame>, Collisio
   int mGoldDrop = 1;
 
   // 시각적 요소
-  late RectangleComponent mBody;
+  SpriteComponent? mSprite;
+  RectangleComponent? mFallbackBody;
 
   // 콜백
   VoidCallback? mOnRemoveCallback;
@@ -55,15 +57,45 @@ class Monster extends PositionComponent with HasGameReference<VamGame>, Collisio
     // 스탯 설정
     _initStats();
 
-    // 시각적 표현
-    mBody = RectangleComponent(
-      size: size,
-      paint: Paint()..color = _getColor(),
-    );
-    add(mBody);
+    // 스프라이트 로드 시도
+    try {
+      final sprite = await _loadSprite();
+      mSprite = SpriteComponent(
+        sprite: sprite,
+        size: size,
+      );
+      add(mSprite!);
+      Logger.game('Monster sprite loaded: ${_getSpriteType()}');
+    } catch (e) {
+      // 스프라이트 로드 실패 시 폴백
+      Logger.game('Monster sprite load failed, using fallback: $e');
+      mFallbackBody = RectangleComponent(
+        size: size,
+        paint: Paint()..color = _getColor(),
+      );
+      add(mFallbackBody!);
+    }
 
     // 히트박스
     add(CircleHitbox(radius: size.x / 2 - 4));
+  }
+
+  /// 몬스터 타입에 따른 스프라이트 로드
+  Future<Sprite> _loadSprite() async {
+    if (isBoss) {
+      return SpriteManager.instance.GetBossSprite(0);
+    } else if (isElite) {
+      return SpriteManager.instance.GetMonsterSprite(1);  // monster_1 = 엘리트/중간보스
+    } else {
+      return SpriteManager.instance.GetMonsterSprite(0);  // monster_0 = 기본 잡몹
+    }
+  }
+
+  /// 디버그용 스프라이트 타입 문자열
+  String _getSpriteType() {
+    if (isBoss) return 'boss_0';
+    if (isElite) return 'monster_1 (elite)';
+    return 'monster_0';
   }
 
   void _initStats() {
@@ -142,13 +174,22 @@ class Monster extends PositionComponent with HasGameReference<VamGame>, Collisio
     );
     game.world.add(damageText);
 
-    // 피격 이펙트 (색상 변경)
-    mBody.paint.color = Colors.white;
-    Future.delayed(const Duration(milliseconds: 50), () {
-      if (mIsAlive) {
-        mBody.paint.color = _getColor();
-      }
-    });
+    // 피격 이펙트 (깜빡임)
+    if (mSprite != null) {
+      mSprite!.opacity = 0.5;
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mIsAlive && mSprite != null) {
+          mSprite!.opacity = 1.0;
+        }
+      });
+    } else if (mFallbackBody != null) {
+      mFallbackBody!.paint.color = Colors.white;
+      Future.delayed(const Duration(milliseconds: 50), () {
+        if (mIsAlive && mFallbackBody != null) {
+          mFallbackBody!.paint.color = _getColor();
+        }
+      });
+    }
 
     if (mCurrentHp <= 0) {
       Die();
@@ -158,7 +199,13 @@ class Monster extends PositionComponent with HasGameReference<VamGame>, Collisio
   /// 사망
   void Die() {
     mIsAlive = false;
-    mBody.paint.color = Colors.grey;
+
+    // 사망 시각 효과
+    if (mSprite != null) {
+      mSprite!.opacity = 0.5;
+    } else if (mFallbackBody != null) {
+      mFallbackBody!.paint.color = Colors.grey;
+    }
 
     // 경험치 젬 드롭
     _spawnDrops();

@@ -1,7 +1,7 @@
 # 뱀서라이크 슈팅 게임 구현 내역서
 
-> 문서 버전: 1.7
-> 최종 수정일: 2025-12-06
+> 문서 버전: 1.8
+> 최종 수정일: 2025-12-07
 
 ---
 
@@ -17,6 +17,7 @@
 8. [버그 수정 이력](#8-버그-수정-이력)
 9. [장비 시스템 아키텍처 변경](#9-장비-시스템-아키텍처-변경)
 10. [순찰/상점 시스템](#10-순찰상점-시스템)
+11. [스프라이트 시스템](#11-스프라이트-시스템)
 
 ---
 
@@ -839,6 +840,7 @@ class ChallengeRecordData {
 | 1.5 | 2025-12-06 | 버그 수정: 레벨업/도전모드/결과화면/로비UI/회전무기 수정 |
 | 1.6 | 2025-12-06 | 장비 시스템 아키텍처 변경: 영구 저장, 로비 UI, 스킬 기반 캐릭터 |
 | 1.7 | 2025-12-06 | 순찰/상점 시스템 구현, 스킬 레벨 합산 버그 수정 |
+| 1.8 | 2025-12-07 | 스프라이트 시스템 구현 (영웅/몬스터/보스/배경 이미지) |
 
 ---
 
@@ -1791,3 +1793,320 @@ SizedBox(
 | `lib/presentation/screens/patrol_screen.dart` | 신규 | 순찰 화면 UI |
 | `lib/presentation/screens/shop_screen.dart` | 신규 | 상점 화면 UI |
 | `lib/presentation/screens/main_lobby_screen.dart` | 수정 | 순찰/상점 버튼 추가 |
+
+---
+
+## 11. 스프라이트 시스템
+
+### 11.1 개요
+
+**버전**: 1.8 (Phase 2.3)
+
+**구현 목적**:
+- 기존 색상 사각형 폴백을 실제 스프라이트 이미지로 대체
+- 영웅, 몬스터, 보스, 배경에 PNG 이미지 적용
+- 리소스 관리 구조 설계 (OriginRes → assets 복사)
+
+### 11.2 폴더 구조
+
+```
+OriginRes/                     # 원본 리소스 (Git 포함, 빌드 제외)
+├── Actor/
+│   ├── Heroes/
+│   │   ├── hero_0.png        # 특공대원
+│   │   ├── hero_1.png        # 검사
+│   │   ├── hero_2.png        # 화염 마법사
+│   │   └── hero_3.png        # 궁수
+│   ├── Monsters/
+│   │   ├── monster_0.png     # 기본 잡몹
+│   │   └── monster_1.png     # 엘리트/중간보스
+│   └── Bosses/
+│       └── boss_0.png        # 스테이지 보스
+└── Background/
+    └── bg_0.png              # 타일 배경
+
+assets/images/                 # 빌드 리소스 (OriginRes에서 복사)
+├── actors/
+│   ├── heroes/
+│   │   ├── hero_0.png
+│   │   ├── hero_1.png
+│   │   ├── hero_2.png
+│   │   └── hero_3.png
+│   ├── monsters/
+│   │   ├── monster_0.png
+│   │   └── monster_1.png
+│   └── bosses/
+│       └── boss_0.png
+└── backgrounds/
+    └── bg_0.png
+```
+
+### 11.3 핵심 클래스
+
+#### 11.3.1 SpritePaths (경로 상수)
+
+**파일**: `lib/core/resources/sprite_paths.dart`
+
+```dart
+/// 스프라이트 리소스 경로 상수
+/// Flame.images.load()는 assets/images/ 폴더를 루트로 사용
+class SpritePaths {
+  // 액터 경로 (assets/images/ 기준)
+  static const String HEROES = 'actors/heroes/';
+  static const String MONSTERS = 'actors/monsters/';
+  static const String BOSSES = 'actors/bosses/';
+
+  // 배경 경로
+  static const String BACKGROUNDS = 'backgrounds/';
+
+  // 이펙트 경로
+  static const String EFFECTS = 'effects/';
+
+  // UI 경로
+  static const String UI = 'ui/';
+
+  // 헬퍼 메서드
+  static String Hero(int index) => '${HEROES}hero_$index.png';
+  static String Monster(int index) => '${MONSTERS}monster_$index.png';
+  static String Boss(int index) => '${BOSSES}boss_$index.png';
+  static String Background(int index) => '${BACKGROUNDS}bg_$index.png';
+  static String Effect(String name) => '${EFFECTS}fx_$name.png';
+}
+```
+
+#### 11.3.2 SpriteManager (스프라이트 로딩/캐싱)
+
+**파일**: `lib/core/resources/sprite_manager.dart`
+
+```dart
+/// 스프라이트 매니저 (싱글톤)
+class SpriteManager {
+  static final SpriteManager instance = SpriteManager._();
+  SpriteManager._();
+
+  late FlameGame mGame;
+  final Map<String, Sprite> mCache = {};
+
+  Future<void> Initialize(FlameGame game) async {
+    mGame = game;
+    mCache.clear();
+  }
+
+  /// 스프라이트 로드 (캐싱)
+  Future<Sprite> GetSprite(String path) async {
+    if (mCache.containsKey(path)) {
+      return mCache[path]!;
+    }
+    final sprite = await mGame.loadSprite(path);
+    mCache[path] = sprite;
+    return sprite;
+  }
+
+  // 편의 메서드
+  Future<Sprite> GetHeroSprite(int index) => GetSprite(SpritePaths.Hero(index));
+  Future<Sprite> GetMonsterSprite(int index) => GetSprite(SpritePaths.Monster(index));
+  Future<Sprite> GetBossSprite(int index) => GetSprite(SpritePaths.Boss(index));
+  Future<Sprite> GetBackgroundSprite(int index) => GetSprite(SpritePaths.Background(index));
+}
+```
+
+### 11.4 스프라이트 매핑
+
+#### 11.4.1 영웅 (CharacterData.spriteIndex)
+
+| 캐릭터 | spriteIndex | 이미지 |
+|--------|-------------|--------|
+| 특공대원 (COMMANDO) | 0 | hero_0.png |
+| 검사 (SWORDSMAN) | 1 | hero_1.png |
+| 화염 마법사 (PYROMANCER) | 2 | hero_2.png |
+| 궁수 (ARCHER) | 3 | hero_3.png |
+| 번개 마법사 (STORMCALLER) | 0 (기본값) | 이미지 없음, fallback |
+
+#### 11.4.2 몬스터/보스 (Monster 클래스)
+
+| 타입 | 조건 | 이미지 |
+|------|------|--------|
+| 기본 잡몹 | 기본값 | monster_0.png |
+| 엘리트/중간보스 | isElite = true | monster_1.png |
+| 스테이지 보스 | isBoss = true | boss_0.png |
+
+### 11.5 컴포넌트 변경 사항
+
+#### 11.5.1 Player 스프라이트 로딩
+
+**파일**: `lib/game/components/actors/player.dart`
+
+```dart
+class Player extends PositionComponent {
+  SpriteComponent? mSprite;
+  RectangleComponent? mFallbackBody;
+
+  @override
+  Future<void> onLoad() async {
+    try {
+      final sprite = await SpriteManager.instance.GetHeroSprite(
+        game.mCharacterData.spriteIndex
+      );
+      mSprite = SpriteComponent(sprite: sprite, size: size);
+      add(mSprite!);
+    } catch (e) {
+      // 폴백: 색상 사각형
+      mFallbackBody = RectangleComponent(
+        size: size,
+        paint: Paint()..color = game.mCharacterData.color,
+      );
+      add(mFallbackBody!);
+    }
+  }
+
+  // 무적 깜빡임 효과
+  void update(double dt) {
+    if (isInvincible) {
+      if (mSprite != null) {
+        mSprite!.opacity = (mInvincibilityTimer * 10).floor() % 2 == 0 ? 1.0 : 0.3;
+      } else if (mFallbackBody != null) {
+        mFallbackBody!.paint.color = isVisible ? characterColor : characterColor.withAlpha(0.3);
+      }
+    }
+  }
+}
+```
+
+#### 11.5.2 Monster 스프라이트 로딩
+
+**파일**: `lib/game/components/actors/monster.dart`
+
+```dart
+class Monster extends PositionComponent {
+  SpriteComponent? mSprite;
+  RectangleComponent? mFallbackBody;
+
+  Future<Sprite> _loadSprite() async {
+    if (isBoss) {
+      return SpriteManager.instance.GetBossSprite(0);
+    } else if (isElite) {
+      return SpriteManager.instance.GetMonsterSprite(1);  // 엘리트
+    } else {
+      return SpriteManager.instance.GetMonsterSprite(0);  // 기본 잡몹
+    }
+  }
+
+  // 피격 이펙트
+  void TakeDamage(int damage, {bool isCritical = false}) {
+    if (mSprite != null) {
+      mSprite!.opacity = 0.5;
+      Future.delayed(Duration(milliseconds: 50), () {
+        if (mIsAlive) mSprite!.opacity = 1.0;
+      });
+    } else if (mFallbackBody != null) {
+      mFallbackBody!.paint.color = Colors.white;
+      Future.delayed(Duration(milliseconds: 50), () {
+        if (mIsAlive) mFallbackBody!.paint.color = _getColor();
+      });
+    }
+  }
+
+  // 사망 효과
+  void Die() {
+    if (mSprite != null) {
+      mSprite!.opacity = 0.5;
+    } else if (mFallbackBody != null) {
+      mFallbackBody!.paint.color = Colors.grey;
+    }
+  }
+}
+```
+
+#### 11.5.3 TiledBackground 배경 이미지
+
+**파일**: `lib/game/components/tiled_background.dart`
+
+```dart
+class TiledBackground extends Component {
+  ui.Image? mBackgroundImage;
+  bool mUseSprite = false;
+
+  @override
+  Future<void> onLoad() async {
+    try {
+      final sprite = await SpriteManager.instance.GetBackgroundSprite(0);
+      mBackgroundImage = sprite.image;
+      mUseSprite = true;
+    } catch (e) {
+      mUseSprite = false;  // 폴백: 체커보드 패턴
+    }
+  }
+
+  @override
+  void render(Canvas canvas) {
+    if (mUseSprite && mBackgroundImage != null) {
+      // 배경 이미지 타일링
+      canvas.drawImageRect(mBackgroundImage!, srcRect, dstRect, Paint());
+    } else {
+      // 폴백: 녹색 체커보드 패턴
+      final color = isEven ? TILE_COLOR_1 : TILE_COLOR_2;
+      canvas.drawRect(rect, Paint()..color = color);
+    }
+  }
+}
+```
+
+### 11.6 VamGame 초기화
+
+**파일**: `lib/game/vam_game.dart`
+
+```dart
+@override
+Future<void> onLoad() async {
+  // 스프라이트 매니저 초기화 (가장 먼저)
+  await SpriteManager.instance.Initialize(this);
+
+  // 이후 컴포넌트 생성...
+  background = TiledBackground();
+  player = Player();
+}
+```
+
+### 11.7 파일 구조 업데이트
+
+```
+lib/
+├── core/
+│   └── resources/              # ⭐ 신규
+│       ├── sprite_paths.dart   # 경로 상수
+│       └── sprite_manager.dart # 스프라이트 로딩/캐싱
+```
+
+### 11.8 관련 파일 목록
+
+| 파일 | 변경 유형 | 설명 |
+|------|----------|------|
+| `lib/core/resources/sprite_paths.dart` | 신규 | 스프라이트 경로 상수 |
+| `lib/core/resources/sprite_manager.dart` | 신규 | 스프라이트 로딩/캐싱 싱글톤 |
+| `lib/data/models/character_data.dart` | 수정 | spriteIndex 필드 및 매핑 추가 |
+| `lib/game/vam_game.dart` | 수정 | SpriteManager 초기화 |
+| `lib/game/components/actors/player.dart` | 수정 | 스프라이트 로딩 + 폴백 패턴 |
+| `lib/game/components/actors/monster.dart` | 수정 | 몬스터/보스 스프라이트 로딩 |
+| `lib/game/components/tiled_background.dart` | 수정 | 배경 이미지 타일링 |
+| `assets/images/actors/heroes/` | 신규 | 영웅 이미지 4개 |
+| `assets/images/actors/monsters/` | 신규 | 몬스터 이미지 2개 |
+| `assets/images/actors/bosses/` | 신규 | 보스 이미지 1개 |
+| `assets/images/backgrounds/` | 신규 | 배경 이미지 1개 |
+
+### 11.9 이미지 요구사항
+
+- **형식**: PNG (RGBA, 알파 채널 지원)
+- **투명 배경**: 캐릭터/몬스터는 배경 투명 필수
+- **권장 크기**:
+  - 영웅: 48x48 ~ 64x64 px
+  - 기본 몬스터: 40x40 px
+  - 엘리트 몬스터: 64x64 px
+  - 보스: 96x96 px
+  - 배경 타일: 512x512 px (타일링 고려)
+
+### 11.10 TODO (미구현)
+
+- [ ] hero_4.png (번개 마법사용) 이미지 추가
+- [ ] 스킬 이펙트 스프라이트 추가
+- [ ] UI 아이콘 스프라이트 추가
+- [ ] 스프라이트 애니메이션 (SpriteSheet) 지원

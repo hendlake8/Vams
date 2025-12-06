@@ -1,6 +1,10 @@
+import 'dart:ui' as ui;
+
 import 'package:flame/components.dart';
 import 'package:flutter/material.dart';
 
+import '../../core/resources/sprite_manager.dart';
+import '../../core/utils/logger.dart';
 import '../vam_game.dart';
 
 /// 타일링 배경 컴포넌트
@@ -13,6 +17,10 @@ class TiledBackground extends Component with HasGameRef<VamGame> {
   late int mTilesX;
   late int mTilesY;
 
+  // 배경 이미지
+  ui.Image? mBackgroundImage;
+  bool mUseSprite = false;
+
   @override
   Future<void> onLoad() async {
     await super.onLoad();
@@ -20,6 +28,17 @@ class TiledBackground extends Component with HasGameRef<VamGame> {
     // 화면을 덮기 위해 필요한 타일 수 계산 (+4는 스크롤 시 여유분)
     mTilesX = (gameRef.size.x / TILE_SIZE).ceil() + 4;
     mTilesY = (gameRef.size.y / TILE_SIZE).ceil() + 4;
+
+    // 배경 스프라이트 로드 시도
+    try {
+      final sprite = await SpriteManager.instance.GetBackgroundSprite(0);
+      mBackgroundImage = sprite.image;
+      mUseSprite = true;
+      Logger.game('Background sprite loaded: bg_0.png');
+    } catch (e) {
+      Logger.game('Background sprite load failed, using fallback: $e');
+      mUseSprite = false;
+    }
   }
 
   @override
@@ -37,10 +56,6 @@ class TiledBackground extends Component with HasGameRef<VamGame> {
         final tileX = startX + x;
         final tileY = startY + y;
 
-        // 체커보드 패턴
-        final isEven = (tileX + tileY) % 2 == 0;
-        final color = isEven ? TILE_COLOR_1 : TILE_COLOR_2;
-
         final rect = Rect.fromLTWH(
           tileX * TILE_SIZE,
           tileY * TILE_SIZE,
@@ -48,16 +63,34 @@ class TiledBackground extends Component with HasGameRef<VamGame> {
           TILE_SIZE,
         );
 
-        canvas.drawRect(rect, Paint()..color = color);
+        if (mUseSprite && mBackgroundImage != null) {
+          // 배경 이미지 타일링
+          canvas.drawImageRect(
+            mBackgroundImage!,
+            Rect.fromLTWH(
+              0,
+              0,
+              mBackgroundImage!.width.toDouble(),
+              mBackgroundImage!.height.toDouble(),
+            ),
+            rect,
+            Paint(),
+          );
+        } else {
+          // 폴백: 체커보드 패턴
+          final isEven = (tileX + tileY) % 2 == 0;
+          final color = isEven ? TILE_COLOR_1 : TILE_COLOR_2;
+          canvas.drawRect(rect, Paint()..color = color);
 
-        // 격자선 (선택사항)
-        canvas.drawRect(
-          rect,
-          Paint()
-            ..color = Colors.black.withOpacity(0.1)
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 1,
-        );
+          // 격자선
+          canvas.drawRect(
+            rect,
+            Paint()
+              ..color = Colors.black.withValues(alpha: 0.1)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1,
+          );
+        }
       }
     }
   }

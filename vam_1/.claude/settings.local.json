@@ -21,7 +21,8 @@
       "Bash(set JAVA_HOME=C:Program FilesEclipse Adoptiumjdk-21.0.9.10-hotspot)",
       "Bash(if [ -d \"D:/GitForkClone/Vams/vam_1/Report\" ])",
       "Bash(then ls -la \"D:/GitForkClone/Vams/vam_1/Report/\")",
-      "Bash(else echo \"Report 폴더 없음\")"
+      "Bash(else echo \"Report 폴더 없음\")",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []
