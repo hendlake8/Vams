@@ -1,6 +1,6 @@
 # 뱀서라이크 슈팅 게임 구현 내역서
 
-> 문서 버전: 1.1
+> 문서 버전: 1.2
 > 최종 수정일: 2025-12-06
 
 ---
@@ -48,6 +48,7 @@
 | 스폰 시스템 | `spawn_system.dart` | ✅ 완료 | 몬스터 스폰 관리 |
 | 웨이브 시스템 | `wave_system.dart` | ✅ 완료 | 시간 기반 웨이브 진행 |
 | 전투 시스템 | `combat_system.dart` | ✅ 완료 | 데미지 계산 |
+| 장비 시스템 | `equipment_system.dart` | ✅ 완료 | 장비 인벤토리, 장착/해제, 강화 (Phase 2) |
 
 ### 2.2 게임 오브젝트
 
@@ -66,9 +67,10 @@
 |----|------|------|------|
 | HUD | `hud_overlay.dart` | ✅ 완료 | HP바, EXP바, 시간, 킬수 |
 | 스킬 선택 | `skill_select_overlay.dart` | ✅ 완료 | 레벨업 시 스킬 선택 UI |
-| 일시정지 | `pause_overlay.dart` | ✅ 완료 | 일시정지 + 습득 스킬 목록 |
+| 일시정지 | `pause_overlay.dart` | ✅ 완료 | 일시정지 + 습득 스킬 + 장비 관리 |
 | 게임오버 | `game_over_overlay.dart` | ✅ 완료 | 게임오버/승리 화면 |
 | 캐릭터 선택 | `character_select_screen.dart` | ✅ 완료 | 캐릭터 선택 UI (Phase 2) |
+| 장비 관리 | `equipment_screen.dart` | ✅ 완료 | 장비 장착/강화 UI (Phase 2) |
 
 ### 2.4 데이터 모델
 
@@ -77,8 +79,8 @@
 | 스킬 데이터 | `skill_data.dart` | ✅ 완료 | 8개 스킬 정의 (5 공격 + 3 패시브) |
 | 무기 데이터 | `weapon_data.dart` | ✅ 완료 | 5개 무기 정의 (스킬 연결) |
 | 캐릭터 데이터 | `character_data.dart` | ✅ 완료 | 5개 캐릭터 정의 (Phase 2) |
+| 장비 데이터 | `equipment_data.dart` | ✅ 완료 | 9개 장비 정의 (Phase 2) |
 | 액터 스탯 | `actor_stats.dart` | ✅ 완료 | 공통 스탯 구조 |
-| 몬스터 모델 | `monster_model.dart` | ✅ 완료 | 몬스터 데이터 |
 
 ---
 
@@ -102,10 +104,8 @@ lib/
 │   ├── skill_data.dart                # 스킬 정의 ⭐
 │   ├── weapon_data.dart               # 무기 정의 ⭐
 │   ├── character_data.dart            # 캐릭터 정의 ⭐ (Phase 2)
-│   ├── actor_stats.dart
-│   ├── character_model.dart
-│   ├── monster_model.dart
-│   └── skill_model.dart
+│   ├── equipment_data.dart            # 장비 정의 ⭐ (Phase 2)
+│   └── actor_stats.dart
 │
 ├── game/                              # 게임 로직
 │   ├── vam_game.dart                  # 메인 게임 ⭐
@@ -126,6 +126,7 @@ lib/
 │       ├── weapon_system.dart         # 무기 시스템 ⭐
 │       ├── skill_system.dart          # 스킬 시스템 ⭐
 │       ├── level_system.dart          # 레벨 시스템 ⭐
+│       ├── equipment_system.dart      # 장비 시스템 ⭐ (Phase 2)
 │       ├── combat_system.dart
 │       ├── spawn_system.dart
 │       └── wave_system.dart
@@ -134,6 +135,7 @@ lib/
     ├── screens/
     │   ├── main_lobby_screen.dart
     │   ├── character_select_screen.dart  # 캐릭터 선택 ⭐ (Phase 2)
+    │   ├── equipment_screen.dart         # 장비 관리 ⭐ (Phase 2)
     │   └── game_screen.dart
     └── overlays/
         ├── hud_overlay.dart
@@ -218,12 +220,46 @@ int mSelectedIndex = 0;  // 선택된 스킬 인덱스 (초기값: 첫 번째)
 
 ### 4.5 PauseOverlay
 
-**역할**: 일시정지 화면 + 습득 스킬 목록
+**역할**: 일시정지 화면 + 습득 스킬 목록 + 장비 관리
 
 **구성 요소**:
 - `_AcquiredSkillsPanel`: 습득 스킬 그리드 표시
 - `_SkillItem`: 개별 스킬 아이템
-- `_MenuButton`: 메뉴 버튼 (계속/재시작/나가기)
+- `_MenuButton`: 메뉴 버튼 (계속/장비 관리/재시작/나가기)
+
+### 4.6 EquipmentSystem
+
+**역할**: 장비 인벤토리 관리, 장착/해제, 강화
+
+```dart
+class EquipmentSystem {
+  List<EquipmentInstance> mInventory;  // 보유 장비 목록
+  Map<EquipmentSlot, EquipmentInstance?> mEquipped;  // 장착된 장비
+
+  EquipmentInstance AddEquipment(EquipmentData data);  // 장비 추가
+  bool Equip(EquipmentInstance equipment);             // 장착
+  void Unequip(EquipmentSlot slot);                    // 해제
+  bool UpgradeEquipment(EquipmentInstance equipment);  // 강화
+  ActorStats GetTotalEquipmentStats();                 // 장비 총 스탯
+  EquipmentInstance? TryDropEquipment(double chance);  // 랜덤 드롭
+}
+```
+
+### 4.7 EquipmentScreen (StatefulWidget)
+
+**역할**: 장비 관리 UI
+
+**구성 요소**:
+- `_buildEquippedSection`: 장착 중인 장비 표시
+- `_buildInventorySection`: 인벤토리 목록 (슬롯별 탭)
+- `_buildDetailPanel`: 선택된 장비 상세 정보
+- `_buildStatsGrid`: 스탯 표시 그리드
+
+**상태 관리**:
+```dart
+EquipmentSlot mSelectedSlot;         // 선택된 슬롯 탭
+EquipmentInstance? mSelectedEquipment;  // 선택된 장비
+```
 
 ---
 
@@ -290,6 +326,43 @@ class SkillData {
 | weapon_fire_staff | skill_fire_burst | Rare |
 | weapon_poison_bow | skill_poison_arrow | Rare |
 | weapon_lightning_staff | skill_chain_lightning | Epic |
+
+### 5.5 EquipmentData (Phase 2)
+
+```dart
+class EquipmentData {
+  final String id;
+  final String name;
+  final String description;
+  final EquipmentSlot slot;     // weapon, armor, accessory
+  final EquipmentRarity rarity; // common ~ legendary
+  final ActorStats bonusStats;  // 장착 시 추가 스탯
+}
+
+class EquipmentInstance {
+  final EquipmentData data;
+  int level;               // 강화 레벨
+  bool isEquipped;
+
+  ActorStats GetCurrentStats();  // 레벨 적용 스탯
+  int GetMaxLevel();             // 등급별 최대 레벨
+  bool CanUpgrade();             // 강화 가능 여부
+}
+```
+
+### 5.6 정의된 장비 목록 (Phase 2)
+
+| 장비 ID | 이름 | 슬롯 | 등급 | 주요 스탯 |
+|---------|------|------|------|----------|
+| equip_iron_sword | 철 검 | 무기 | Common | ATK+5 |
+| equip_flame_blade | 화염 검 | 무기 | Rare | ATK+12, CRIT+5%, CDMG+20% |
+| equip_thunder_staff | 번개 지팡이 | 무기 | Epic | ATK+20, SPD+0.2, CRIT+8% |
+| equip_leather_armor | 가죽 갑옷 | 방어구 | Common | HP+20, DEF+3 |
+| equip_knight_plate | 기사의 판금 갑옷 | 방어구 | Rare | HP+50, DEF+8 |
+| equip_dragon_scale | 용린 갑옷 | 방어구 | Legendary | HP+100, ATK+5, DEF+15 |
+| equip_speed_boots | 신속의 부츠 | 액세서리 | Common | SPD+0.3 |
+| equip_critical_ring | 치명의 반지 | 액세서리 | Rare | CRIT+10%, CDMG+25% |
+| equip_life_pendant | 생명의 펜던트 | 액세서리 | Epic | HP+80, DEF+5 |
 
 ---
 
@@ -407,8 +480,11 @@ class SkillData {
 | 항목 | 상태 | 설명 |
 |------|------|------|
 | 캐릭터 시스템 | ✅ 완료 | 5개 캐릭터, 선택 UI |
-| 장비 시스템 | 📋 예정 | 장비 장착/해제 |
-| 장비 강화/합성 | 📋 예정 | 레벨업, 등급 합성 |
+| 장비 시스템 | ✅ 완료 | 장비 인벤토리, 장착/해제, 9개 장비 |
+| 장비 강화 | ✅ 완료 | 레벨업 강화 (등급별 최대 레벨) |
+| 장비 관리 UI | ✅ 완료 | 탭 기반 슬롯 선택, 상세 정보 패널 |
+| 장비 드롭 | ✅ 완료 | 확률 기반 랜덤 드롭 시스템 |
+| 장비 합성 | 📋 예정 | 등급 합성 |
 | 도전 콘텐츠 | 📋 예정 | 도전 스테이지 |
 | 순찰/상점 | 📋 예정 | 방치형 보상, 상점 |
 
@@ -458,3 +534,4 @@ class SkillData {
 |------|------|-----------|
 | 1.0 | 2025-12-06 | 최초 작성 - 무기/스킬 시스템, UI 구현 완료 |
 | 1.1 | 2025-12-06 | Phase 2 캐릭터 시스템 추가 (캐릭터 선택 UI, 5개 캐릭터 정의) |
+| 1.2 | 2025-12-06 | Phase 2 장비 시스템 추가 (장비 데이터, 시스템, UI, 9개 장비 정의) |

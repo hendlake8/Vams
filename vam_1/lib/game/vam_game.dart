@@ -14,6 +14,7 @@ import 'systems/wave_system.dart';
 import 'systems/level_system.dart';
 import 'systems/weapon_system.dart';
 import 'systems/skill_system.dart';
+import 'systems/equipment_system.dart';
 import 'input/joystick_controller.dart';
 
 /// 메인 게임 클래스
@@ -33,6 +34,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   late LevelSystem levelSystem;
   late WeaponSystem weaponSystem;
   late SkillSystem skillSystem;
+  late EquipmentSystem equipmentSystem;
 
   // 게임 상태
   double mElapsedTime = 0;
@@ -73,6 +75,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     levelSystem = LevelSystem(this);
     weaponSystem = WeaponSystem(this);
     skillSystem = SkillSystem(this);
+    equipmentSystem = EquipmentSystem(this);
 
     // 배경 추가
     background = TiledBackground();
@@ -194,6 +197,7 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     levelSystem.Reset();
     weaponSystem.Reset();
     skillSystem.Reset();
+    equipmentSystem.Reset();
 
     resumeEngine();
     Logger.game('Game Restarted');
