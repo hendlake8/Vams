@@ -1,6 +1,6 @@
 # 뱀서라이크 슈팅 게임 구현 내역서
 
-> 문서 버전: 1.9
+> 문서 버전: 2.0
 > 최종 수정일: 2025-12-07
 
 ---
@@ -20,6 +20,10 @@
 11. [스프라이트 시스템](#11-스프라이트-시스템)
 12. [몬스터 공격 시스템](#12-몬스터-공격-시스템)
 13. [스킬 연쇄 효과](#13-스킬-연쇄-효과)
+14. [버그 수정 (v1.9)](#14-버그-수정-v19)
+15. [엘리트 스폰 시스템 개선](#15-엘리트-스폰-시스템-개선)
+16. [도전 모드 보스 러시 제거](#16-도전-모드-보스-러시-제거)
+17. [로비 UI 갱신 개선](#17-로비-ui-갱신-개선)
 
 ---
 
@@ -2390,3 +2394,376 @@ chaining: true,
 chainCount: 4,
 chainRange: 150,
 ```
+
+---
+
+## 15. 엘리트 스폰 시스템 개선
+
+### 15.1 개요
+
+**버전**: 2.0
+
+엘리트 몬스터 스폰 메커니즘을 이중 트리거 방식으로 재설계:
+1. **웨이브 기준**: 3웨이브마다 엘리트 스폰 (점진적 증가)
+2. **킬 기준**: 10킬마다 확률 판정 (실패 시 확률 누적)
+
+### 15.2 웨이브 기준 엘리트 스폰
+
+#### 15.2.1 통합 웨이브 카운터
+
+`WaveSystem`에 일반 모드/도전 모드 공용 웨이브 카운터 추가:
+
+```dart
+class WaveSystem {
+  int mWaveCount = 1;  // 통합 웨이브 카운터
+
+  void _transitionTo(WavePhase newPhase) {
+    final previousPhase = mCurrentPhase;
+    mCurrentPhase = newPhase;
+    mPhaseTimer = 0;
+
+    // 웨이브 카운터 증가 로직
+    // wave1 → midBoss → wave2: 웨이브 2로 간주
+    if (newPhase == WavePhase.wave2 && previousPhase == WavePhase.midBoss) {
+      mWaveCount++;
+      mGame.spawnSystem.CheckEliteSpawnByWave();
+    }
+    // wave2 → finalBoss → wave1 (도전모드 루프): 웨이브 3, 4, 5...
+    else if (newPhase == WavePhase.wave1 && previousPhase == WavePhase.finalBoss) {
+      mWaveCount++;
+      mGame.spawnSystem.CheckEliteSpawnByWave();
+    }
+  }
+}
+```
+
+#### 15.2.2 웨이브 기준 스폰 로직
+
+```dart
+class SpawnSystem {
+  int mLastEliteWave = 0;
+  static const int ELITE_WAVE_INTERVAL = 3;  // 3웨이브마다
+
+  void CheckEliteSpawnByWave() {
+    final waveCount = mGame.waveSystem.mWaveCount;
+
+    // 웨이브 3, 6, 9, ... 마다 체크
+    // 스폰 수: 웨이브 3 → 1마리, 6 → 2마리, 9 → 3마리
+    if (waveCount >= ELITE_WAVE_INTERVAL &&
+        waveCount % ELITE_WAVE_INTERVAL == 0 &&
+        waveCount > mLastEliteWave) {
+      final eliteCount = waveCount ~/ ELITE_WAVE_INTERVAL;
+      for (int i = 0; i < eliteCount; i++) {
+        SpawnElite();
+      }
+      mLastEliteWave = waveCount;
+    }
+  }
+}
+```
+
+| 웨이브 | 엘리트 스폰 수 |
+|--------|---------------|
+| 3 | 1마리 |
+| 6 | 2마리 |
+| 9 | 3마리 |
+| 12 | 4마리 |
+| ... | ... |
+
+### 15.3 킬 기준 엘리트 스폰 (확률 시스템)
+
+#### 15.3.1 설정값
+
+```dart
+class SpawnSystem {
+  // 킬 기준 설정값 (개별 조절 가능)
+  static const int ELITE_KILL_INTERVAL = 10;        // 10킬마다 확률 체크
+  static const double ELITE_BASE_CHANCE = 0.1;      // 기본 확률 10%
+  static const double ELITE_CHANCE_INCREMENT = 0.1; // 실패 시 증가량 10%
+
+  // 상태 변수
+  int mLastKillCheck = 0;
+  double mEliteSpawnChance = 0.1;  // 현재 확률 (동적)
+}
+```
+
+#### 15.3.2 확률 판정 로직
+
+```dart
+void CheckEliteSpawnByKill() {
+  final killCount = mGame.mKillCount;
+
+  // 10킬 마일스톤마다 체크
+  final killMilestone = (killCount ~/ ELITE_KILL_INTERVAL) * ELITE_KILL_INTERVAL;
+  if (killMilestone > 0 && killMilestone > mLastKillCheck) {
+    mLastKillCheck = killMilestone;
+
+    // 확률 판정
+    final roll = MathUtils.RandomRange(0.0, 1.0);
+    if (roll < mEliteSpawnChance) {
+      // 스폰 성공 → 확률 초기화
+      SpawnElite();
+      mEliteSpawnChance = ELITE_BASE_CHANCE;
+    } else {
+      // 스폰 실패 → 확률 증가
+      mEliteSpawnChance += ELITE_CHANCE_INCREMENT;
+    }
+  }
+}
+```
+
+#### 15.3.3 확률 누적 예시
+
+| 킬 수 | 판정 확률 | 결과 | 다음 확률 |
+|-------|----------|------|----------|
+| 10 | 10% | 실패 | 20% |
+| 20 | 20% | 실패 | 30% |
+| 30 | 30% | 성공 | **10%** (초기화) |
+| 40 | 10% | 실패 | 20% |
+| ... | ... | ... | ... |
+
+### 15.4 호출 흐름
+
+```
+[몬스터 처치]
+    │
+    ▼
+[VamGame.AddKill()]
+    │
+    ├── challengeSystem.AddKill()
+    │
+    └── spawnSystem.CheckEliteSpawn()  ← 킬 기준 체크
+            │
+            └── CheckEliteSpawnByKill()
+                    │
+                    ├── 10킬 마일스톤 체크
+                    └── 확률 판정 → 성공 시 SpawnElite()
+
+[웨이브 전환]
+    │
+    ▼
+[WaveSystem._transitionTo()]
+    │
+    └── 웨이브 카운터 증가
+            │
+            └── spawnSystem.CheckEliteSpawnByWave()  ← 웨이브 기준 체크
+                    │
+                    └── 3배수 웨이브 체크 → 조건 충족 시 SpawnElite() × N
+```
+
+### 15.5 관련 파일
+
+| 파일 | 변경 유형 | 설명 |
+|------|----------|------|
+| `lib/game/systems/spawn_system.dart` | 수정 | 이중 트리거 엘리트 스폰 로직 |
+| `lib/game/systems/wave_system.dart` | 수정 | 통합 웨이브 카운터 추가 |
+| `lib/game/vam_game.dart` | 수정 | AddKill()에서 엘리트 스폰 체크 호출 |
+
+---
+
+## 16. 도전 모드 보스 러시 제거
+
+### 16.1 개요
+
+**버전**: 2.0
+
+보스 러시(bossRush) 도전 타입을 완전 제거. 도전 모드는 3가지 타입만 유지:
+- `endless`: 무한 웨이브
+- `survival`: 시간 생존
+- `timeAttack`: 제한 시간 처치
+
+### 16.2 제거된 항목
+
+#### 16.2.1 ChallengeType 열거형
+
+```dart
+// 변경 전
+enum ChallengeType {
+  endless,
+  survival,
+  timeAttack,
+  bossRush,  // ← 제거됨
+}
+
+// 변경 후
+enum ChallengeType {
+  endless,
+  survival,
+  timeAttack,
+}
+```
+
+#### 16.2.2 ChallengeTypeExtension
+
+```dart
+// 제거된 switch case
+case ChallengeType.bossRush:
+  return '보스 러시';
+  return Icons.bolt;
+  return Colors.red;
+```
+
+#### 16.2.3 ChallengeCondition
+
+```dart
+// 제거된 필드
+final int? targetBossKills;  // ← 제거됨
+
+// 제거된 GetDescription() case
+if (targetBossKills != null) {
+  return '보스 $targetBossKills마리 처치';
+}
+```
+
+#### 16.2.4 DefaultChallenges 상수
+
+```dart
+// 제거된 도전 데이터
+static const BOSS_RUSH_NORMAL = ChallengeData(...);
+static const BOSS_RUSH_HARD = ChallengeData(...);
+
+// ALL 리스트에서도 제거
+static const List<ChallengeData> ALL = [
+  ENDLESS_NORMAL, ENDLESS_HARD,
+  SURVIVAL_NORMAL, SURVIVAL_HARD,
+  TIME_ATTACK_NORMAL, TIME_ATTACK_HARD,
+  // BOSS_RUSH_NORMAL, BOSS_RUSH_HARD,  ← 제거됨
+];
+```
+
+### 16.3 시스템 파일 수정
+
+#### 16.3.1 challenge_system.dart
+
+```dart
+// 제거된 _checkClearCondition() case
+case ChallengeType.bossRush:
+  final target = mCurrentChallenge!.condition.targetBossKills ?? 0;
+  return mBossKillCount >= target;
+
+// 제거된 progress getter case
+case ChallengeType.bossRush:
+  final target = mCurrentChallenge!.condition.targetBossKills ?? 1;
+  return (mBossKillCount / target).clamp(0.0, 1.0);
+```
+
+#### 16.3.2 wave_system.dart
+
+```dart
+// 제거된 _shouldSkipBossInChallenge case
+case ChallengeType.bossRush:
+  return false;  // 보스 러시는 보스 스폰 필요
+```
+
+#### 16.3.3 challenge_screen.dart
+
+```dart
+// 제거된 _buildTypeDescription() case
+case ChallengeType.bossRush:
+  description = '강력한 보스들을 연속으로 처치하세요!';
+
+// 제거된 _buildRecordRow() case
+case ChallengeType.bossRush:
+  bestText = '최고 처치: ${record.bestKills}';
+```
+
+### 16.4 관련 파일
+
+| 파일 | 변경 유형 | 설명 |
+|------|----------|------|
+| `lib/data/models/challenge_data.dart` | 수정 | bossRush 열거형, 상수, 필드 제거 |
+| `lib/game/systems/challenge_system.dart` | 수정 | bossRush switch case 제거 |
+| `lib/game/systems/wave_system.dart` | 수정 | bossRush switch case 제거 |
+| `lib/presentation/screens/challenge_screen.dart` | 수정 | bossRush UI 요소 제거 |
+
+---
+
+## 17. 로비 UI 갱신 개선
+
+### 17.1 개요
+
+**버전**: 2.0
+
+게임 종료 후 로비 화면의 레벨/경험치/재화 정보가 갱신되지 않는 버그 수정.
+
+### 17.2 문제 분석
+
+**증상**: 인게임 플레이 후 로비로 돌아와도 상단 정보 바(레벨, 경험치, 골드, 보석)가 갱신되지 않음
+
+**원인**:
+1. `.then()` 콜백에서 조건부 갱신 (`result == true`)
+2. 앱 라이프사이클 상태 변화 시 갱신 누락
+
+### 17.3 수정 내용
+
+#### 17.3.1 WidgetsBindingObserver 추가
+
+```dart
+class _MainLobbyScreenState extends State<MainLobbyScreen>
+    with WidgetsBindingObserver {
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeProgress();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 앱이 다시 활성화될 때 UI 갱신
+    if (state == AppLifecycleState.resumed) {
+      _refreshData();
+    }
+  }
+}
+```
+
+#### 17.3.2 무조건 갱신으로 변경
+
+```dart
+// 변경 전
+Navigator.of(context).push(...).then((result) {
+  if (result == true) {  // 조건부 갱신
+    _refreshData();
+  }
+});
+
+// 변경 후
+Navigator.of(context).push(...).then((_) {
+  _refreshData();  // 무조건 갱신
+});
+```
+
+#### 17.3.3 갱신 메서드
+
+```dart
+void _refreshData() {
+  if (mounted) {
+    setState(() {});  // UI 재빌드
+  }
+}
+```
+
+### 17.4 영향 받는 화면 전환
+
+| 출발 화면 | 도착 화면 | 복귀 시 동작 |
+|----------|----------|-------------|
+| 로비 | 캐릭터 선택 | ✅ 무조건 갱신 |
+| 로비 | 도전 선택 | ✅ 무조건 갱신 |
+| 로비 | 장비 관리 | ✅ 무조건 갱신 |
+| 로비 | 순찰 | ✅ 무조건 갱신 |
+| 로비 | 상점 | ✅ 무조건 갱신 |
+
+### 17.5 관련 파일
+
+| 파일 | 변경 유형 | 설명 |
+|------|----------|------|
+| `lib/presentation/screens/main_lobby_screen.dart` | 수정 | WidgetsBindingObserver 추가, 무조건 갱신 |
+| `lib/presentation/screens/character_select_screen.dart` | 수정 | push 사용으로 변경 (pushReplacement → push)

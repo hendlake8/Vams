@@ -515,3 +515,167 @@ hero_3 : 궁수
 ### 2025-12-07 02:24:18
 /sc:save 
 
+---
+### 2025-12-07 08:07:54
+/sc:load 
+
+---
+### 2025-12-07 08:09:06
+/sc:sc 도전모드 클리어 버그 수정
+
+---
+### 2025-12-07 08:12:58
+/sc:troubleshoot 해당 수정으로도 고쳐지지 않았어
+보석 지급 안됨, 해금 안됨
+
+---
+### 2025-12-07 08:33:59
+/sc:troubleshoot 버그 여전함
+1. 보석 획득 안됨
+2. 해금은 확인 못 함
+
+해금은 나중으로 하고 보석 획득 안되는 거에 집중해서 이거 먼저 해결하자
+
+---
+### 2025-12-07 08:54:47
+/sc:troubleshoot 
+PS C:\Users\hendl> adb -s emulator-5554 logcat -s flutter
+--------- beginning of main
+--------- beginning of system
+--------- beginning of kernel
+12-07 08:48:09.758  5736  5768 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+12-07 08:48:33.066  5736  5736 I flutter : LateInitializationError: Field 'challengeSystem' has not been initialized.
+12-07 08:48:33.066  5736  5736 I flutter : #0      _GameScreenState.initState.<anonymous closure> (package:vam_1/presentation/screens/game_screen.dart)
+12-07 08:48:33.066  5736  5736 I flutter : #1      SchedulerBinding._invokeFrameCallback (package:flutter/src/scheduler/binding.dart:1434)
+12-07 08:48:33.066  5736  5736 I flutter : #2      SchedulerBinding.handleDrawFrame (package:flutter/src/scheduler/binding.dart:1361)
+12-07 08:48:33.066  5736  5736 I flutter : #3      SchedulerBinding._handleDrawFrame (package:flutter/src/scheduler/binding.dart:1200)
+12-07 08:48:33.066  5736  5736 I flutter : #4      _invoke (dart:ui/hooks.dart:356)
+12-07 08:48:33.066  5736  5736 I flutter : #5      PlatformDispatcher._drawFrame (dart:ui/platform_dispatcher.dart:444)
+12-07 08:48:33.066  5736  5736 I flutter : #6      _drawFrame (dart:ui/hooks.dart:328)
+
+---
+### 2025-12-07 09:06:45
+/sc:troubleshoot 
+PS C:\Users\hendl> adb -s emulator-5554 logcat -s flutter
+--------- beginning of main
+--------- beginning of kernel
+--------- beginning of system
+12-07 09:02:07.195  6203  6234 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+12-07 09:02:25.916  6203  6203 I flutter : Challenge started successfully: challenge_endless_normal
+12-07 09:02:25.916  6203  6203 I flutter :   - isInChallengeMode: true
+
+
+---
+### 2025-12-07 09:07:13
+/sc:troubleshoot 없어 저게 다야
+
+---
+### 2025-12-07 09:09:33
+/sc:explain 로그캣에 태그 뭐로 해야함?
+adb -s emulator-5554 logcat -s flutter 이거로 하고 있는데
+
+---
+### 2025-12-07 09:16:27
+/sc:troubleshoot 
+PS C:\Users\hendl> adb -s emulator-5554 logcat -s flutter
+--------- beginning of main
+--------- beginning of system
+--------- beginning of kernel
+12-07 09:12:09.434  6577  6608 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+12-07 09:12:24.317  6577  6577 I flutter : Challenge started successfully: challenge_endless_normal
+12-07 09:12:24.317  6577  6577 I flutter :   - isInChallengeMode: true
+12-07 09:12:59.999  6577  6577 I flutter : [CHALLENGE] Wave advanced to 2 (target: 10)
+12-07 09:13:36.132  6577  6577 I flutter : [CHALLENGE] Wave advanced to 3 (target: 10)
+12-07 09:14:09.949  6577  6577 I flutter : [CHALLENGE] Wave advanced to 4 (target: 10)
+12-07 09:14:42.299  6577  6577 I flutter : [CHALLENGE] Wave advanced to 5 (target: 10)
+12-07 09:15:14.732  6577  6577 I flutter : [CHALLENGE] Wave advanced to 6 (target: 10)
+12-07 09:15:48.332  6577  6577 I flutter : [CHALLENGE] Wave advanced to 7 (target: 10)
+
+---
+### 2025-12-07 09:18:00
+/sc:sc 저게 끝이야 대략 6웨이브에서 보스 나오고 7에서 보스가 죽음
+도전모드는 요구 웨이브에 맞게 보스 나오는 시간을 변경 해야 겠네
+
+---
+### 2025-12-07 09:23:41
+/sc:sc PS C:\Users\hendl> adb -s emulator-5554 logcat -s flutter
+--------- beginning of main
+--------- beginning of system
+--------- beginning of kernel
+12-07 09:20:06.595  6999  7028 I flutter : [IMPORTANT:flutter/shell/platform/android/android_context_vk_impeller.cc(62)] Using the Impeller rendering backend (Vulkan).
+12-07 09:20:21.816  6999  6999 I flutter : Challenge started successfully: challenge_endless_normal
+12-07 09:20:21.816  6999  6999 I flutter :   - isInChallengeMode: true
+12-07 09:20:55.432  6999  6999 I flutter : [CHALLENGE] Wave advanced to 2 (target: 3)
+12-07 09:21:27.832  6999  6999 I flutter : [CHALLENGE] Wave advanced to 3 (target: 3)
+12-07 09:21:27.832  6999  6999 I flutter : [CHALLENGE] Clear condition met! Starting clear process...
+12-07 09:21:27.832  6999  6999 I flutter : [CHALLENGE] _processChallengeClear called
+12-07 09:21:27.834  6999  6999 I flutter : [REWARD] === REWARD PROCESSING START ===
+12-07 09:21:27.834  6999  6999 I flutter : [REWARD] Processing 2 rewards...
+12-07 09:21:27.834  6999  6999 I flutter : [REWARD] Before: gold=332, gems=0
+12-07 09:21:27.834  6999  6999 I flutter : [REWARD] === CURRENCY GRANT START ===
+12-07 09:21:27.834  6999  6999 I flutter : [REWARD] Totals: gold=500, gems=10
+12-07 09:21:27.834  6999  6999 I flutter : [REWARD] Before AddCurrency: gold=332, gems=0
+12-07 09:21:27.836  6999  6999 I flutter : [REWARD] After AddCurrency: gold=832, gems=10
+12-07 09:21:27.836  6999  6999 I flutter : [REWARD] Change: gold +500, gems +10
+12-07 09:21:27.836  6999  6999 I flutter : [REWARD] === REWARD PROCESSING END ===
+12-07 09:21:27.836  6999  6999 I flutter : [CHALLENGE] _onChallengeCleared completed
+정상 지급 되네 도전 모드는 요구 웨이브에 맞게 보스 나오는 시간을 변경하거나 아예 안나오거나
+
+---
+### 2025-12-07 09:27:02
+/sc:improve 특정 웨이브 도달이 목적인 경우 보스 출현 비활성화
+
+---
+### 2025-12-07 09:33:00
+/sc:troubleshoot 게임 플레이 후 로비로 왔을때 얻은 재화 및 계정 레벨 정보가 갱신 되지 않음
+로비의 다른 메뉴 사용 후 로비로 와보면 갱신 됨
+
+---
+### 2025-12-07 09:35:36
+/sc:improve 도전모드에서 보스 러시는 제거 해줘
+
+---
+### 2025-12-07 09:51:49
+/sc:troubleshoot 인게임 플레이 후 로비 탑 UI가 갱신되지 않아
+
+---
+### 2025-12-07 09:57:16
+/sc:design 엘리트 몬스터 나오는 메커니즘을 수정 해야 겠어
+1. 3웨이브 마다 1마리(3, 6, 9, ..)
+2. 150마리 처치 시 1마리(150, 300, 450, ..)
+
+---
+### 2025-12-07 09:58:53
+/sc:explain 
+1. 엘리트 몬스터가 동시에 여러마리 가능한가?
+2. 일반 모드에서도 동작 되는가?
+
+---
+### 2025-12-07 10:00:03
+/sc:explain 
+1. 웨이브 기준도 일반모드에서 정확히 동작해야지
+
+---
+### 2025-12-07 10:01:18
+/sc:implement 진행시켜
+
+---
+### 2025-12-07 10:19:10
+/sc:improve 엘리트 나오는 조건을 다시 수정하자
+1. 3웨이브 마다 나오는건 유지
+ 1.1 나오는 수가 점점 증가(3 : 1, 6 : 2, 9 : 3, ...)
+2. 킬수에 따라 나오는건 전면 수정
+ 2.1 10마리 죽일 때 마다 엘리트가 확률로 스폰
+ 2.2 최초 10%
+ 2.3 스폰 실패 시 다음은 10%씩 계속 증가(20 : 20%, 30 : 30%, ..)
+ 2.4 확률과 간격은 따로 조절 가능하게 각자로 관리(간격 그대로 확률x)
+ 2.5 스폰 성공 시 초기확률로 초기화
+
+---
+### 2025-12-07 10:36:59
+/sc:cleanup 
+
+---
+### 2025-12-07 10:38:39
+/sc:document 현재 구현 내용 문서 업데이트
+

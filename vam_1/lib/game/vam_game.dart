@@ -48,6 +48,11 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   VoidCallback? onLevelUp;
   VoidCallback? onGameOver;
   VoidCallback? onVictory;
+  VoidCallback? onGameLoaded;
+
+  // 로드 완료 여부
+  bool mIsLoaded = false;
+  bool get isLoaded => mIsLoaded;
 
   VamGame({String? characterId}) : mCharacterId = characterId;
 
@@ -95,6 +100,10 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
     // 플로팅 조이스틱 생성
     joystick = FloatingJoystickController();
     camera.viewport.add(joystick);
+
+    // 로드 완료 표시
+    mIsLoaded = true;
+    onGameLoaded?.call();
 
     Logger.game('VamGame onLoad completed');
   }
@@ -170,6 +179,9 @@ class VamGame extends FlameGame with HasCollisionDetection, DragCallbacks {
   void AddKill({bool isBoss = false}) {
     mKillCount++;
     challengeSystem.AddKill(isBoss: isBoss);
+
+    // 킬 마일스톤 엘리트 스폰 체크
+    spawnSystem.CheckEliteSpawn();
   }
 
   /// 게임 오버

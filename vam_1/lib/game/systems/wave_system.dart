@@ -1,5 +1,6 @@
 import '../../core/constants/game_constants.dart';
 import '../../core/utils/logger.dart';
+import '../../data/models/challenge_data.dart';
 import '../vam_game.dart';
 
 /// 웨이브 관리 시스템
@@ -11,7 +12,30 @@ class WaveSystem {
   bool mMidBossSpawned = false;
   bool mFinalBossSpawned = false;
 
+  // 통합 웨이브 카운터 (일반 모드/도전 모드 공용)
+  int mWaveCount = 1;
+
   WaveSystem(this.mGame);
+
+  /// 도전 모드에서 보스 스폰을 비활성화해야 하는지 확인
+  bool get _shouldSkipBossInChallenge {
+    final challenge = mGame.challengeSystem;
+    if (!challenge.isInChallengeMode) return false;
+
+    final currentChallenge = challenge.currentChallenge;
+    if (currentChallenge == null) return false;
+
+    // 도전 모드에서는 보스 스폰 비활성화
+    // endless: 웨이브 도달이 목표
+    // survival: 시간 생존이 목표
+    // timeAttack: 처치 수가 목표
+    switch (currentChallenge.type) {
+      case ChallengeType.endless:
+      case ChallengeType.survival:
+      case ChallengeType.timeAttack:
+        return true;
+    }
+  }
 
   void Update(double dt) {
     mPhaseTimer += dt;
@@ -42,6 +66,12 @@ class WaveSystem {
   }
 
   void _handleMidBoss() {
+    // 도전 모드에서 보스 스킵 시 바로 웨이브 2로
+    if (_shouldSkipBossInChallenge) {
+      _transitionTo(WavePhase.wave2);
+      return;
+    }
+
     // 중간 보스 스폰
     if (!mMidBossSpawned) {
       mMidBossSpawned = true;
@@ -66,6 +96,14 @@ class WaveSystem {
   }
 
   void _handleFinalBoss() {
+    // 도전 모드에서 보스 스킵 시 웨이브 1로 루프 (무한 모드)
+    if (_shouldSkipBossInChallenge) {
+      // 스폰 속도 유지하면서 웨이브 1로 돌아감
+      _transitionTo(WavePhase.wave1);
+      Logger.game('Challenge mode: Skipping final boss, looping back to wave1');
+      return;
+    }
+
     if (!mFinalBossSpawned) {
       mFinalBossSpawned = true;
 
@@ -81,8 +119,24 @@ class WaveSystem {
   }
 
   void _transitionTo(WavePhase newPhase) {
+    final previousPhase = mCurrentPhase;
     mCurrentPhase = newPhase;
     mPhaseTimer = 0;
+
+    // 웨이브 카운터 증가 로직
+    // wave1 → midBoss → wave2: 웨이브 2로 간주
+    // wave2 → finalBoss → wave1 (도전모드 루프): 웨이브 3, 4, 5...
+    if (newPhase == WavePhase.wave2 && previousPhase == WavePhase.midBoss) {
+      mWaveCount++;
+      Logger.game('Wave count: $mWaveCount');
+      mGame.spawnSystem.CheckEliteSpawnByWave();
+    } else if (newPhase == WavePhase.wave1 && previousPhase == WavePhase.finalBoss) {
+      // 도전 모드에서 루프할 때
+      mWaveCount++;
+      Logger.game('Wave count (loop): $mWaveCount');
+      mGame.spawnSystem.CheckEliteSpawnByWave();
+    }
+
     Logger.game('Wave transition to: ${newPhase.name}');
   }
 
@@ -114,6 +168,7 @@ class WaveSystem {
     mPhaseTimer = 0;
     mMidBossSpawned = false;
     mFinalBossSpawned = false;
+    mWaveCount = 1;
   }
 }
 

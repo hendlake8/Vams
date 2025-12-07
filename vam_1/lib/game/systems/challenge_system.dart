@@ -93,15 +93,25 @@ class ChallengeSystem {
     // 클리어 조건 체크
     if (_checkClearCondition()) {
       mIsProcessingResult = true;
-      _onChallengeCleared();
-      return;  // 클리어 처리 시작 후 즉시 반환
+      _processChallengeClear();
+      return;
     }
 
     // 타임어택/서바이벌 시간 초과 체크
     if (_checkTimeOut()) {
       mIsProcessingResult = true;
-      _onChallengeFailed();
+      _processChallengeFailure();  // 비동기 처리를 별도 메서드에서 실행
     }
+  }
+
+  /// 도전 클리어 비동기 처리 래퍼
+  void _processChallengeClear() async {
+    await _onChallengeCleared();
+  }
+
+  /// 도전 실패 비동기 처리 래퍼
+  void _processChallengeFailure() async {
+    await _onChallengeFailed();
   }
 
   /// 킬 카운트 증가
@@ -126,9 +136,6 @@ class ChallengeSystem {
     switch (mCurrentChallenge!.type) {
       case ChallengeType.endless:
         return condition.targetWave != null && mCurrentWave >= condition.targetWave!;
-
-      case ChallengeType.bossRush:
-        return condition.targetBossKills != null && mBossKillCount >= condition.targetBossKills!;
 
       case ChallengeType.timeAttack:
         return condition.targetKills != null && mKillCount >= condition.targetKills!;
@@ -218,19 +225,21 @@ class ChallengeSystem {
   Future<void> _grantRewardsFrom(List<ChallengeReward> rewards) async {
     int totalGold = 0;
     int totalGems = 0;
+    List<String> equipmentIds = [];
 
     Logger.game('Processing ${rewards.length} rewards...');
 
     for (final reward in rewards) {
+      Logger.game('  Processing reward: type=${reward.type}, amount=${reward.amount}');
       switch (reward.type) {
         case ChallengeRewardType.gold:
           totalGold += reward.amount;
-          Logger.game('Reward: ${reward.amount} Gold');
+          Logger.game('  -> Added to totalGold: $totalGold');
           break;
 
         case ChallengeRewardType.gem:
           totalGems += reward.amount;
-          Logger.game('Reward: ${reward.amount} Gems');
+          Logger.game('  -> Added to totalGems: $totalGems');
           break;
 
         case ChallengeRewardType.equipment:
@@ -238,6 +247,7 @@ class ChallengeSystem {
             final equipData = DefaultEquipments.GetById(reward.itemId!);
             if (equipData != null) {
               await ProgressSystem.instance.AddEquipment(reward.itemId!);
+              equipmentIds.add(reward.itemId!);
               Logger.game('Reward: Equipment ${equipData.name}');
             }
           }
@@ -250,13 +260,18 @@ class ChallengeSystem {
       }
     }
 
+    // 도전 보상 결과 저장 (결과 화면 표시용)
+    ProgressSystem.instance.mLastChallengeReward = ChallengeRewardResult(
+      gold: totalGold,
+      gems: totalGems,
+      equipmentIds: equipmentIds,
+      isCleared: true,
+    );
+
     // 재화 지급
-    Logger.game('Granting currency: gold=$totalGold, gems=$totalGems');
     if (totalGold > 0 || totalGems > 0) {
-      final beforeGems = ProgressSystem.instance.gems;
       await ProgressSystem.instance.AddCurrency(gold: totalGold, gems: totalGems);
-      final afterGems = ProgressSystem.instance.gems;
-      Logger.game('Currency granted: $totalGold gold, $totalGems gems (gems: $beforeGems -> $afterGems)');
+      Logger.game('Currency granted: gold=$totalGold, gems=$totalGems');
     }
   }
 
@@ -329,10 +344,6 @@ class ChallengeSystem {
       case ChallengeType.endless:
         if (condition.targetWave == null) return 0.0;
         return (mCurrentWave / condition.targetWave!).clamp(0.0, 1.0);
-
-      case ChallengeType.bossRush:
-        if (condition.targetBossKills == null) return 0.0;
-        return (mBossKillCount / condition.targetBossKills!).clamp(0.0, 1.0);
 
       case ChallengeType.timeAttack:
         if (condition.targetKills == null) return 0.0;

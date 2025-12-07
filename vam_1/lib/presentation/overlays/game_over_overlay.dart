@@ -67,6 +67,16 @@ class GameOverOverlay extends StatelessWidget {
                 label: 'GOLD',
                 value: '+${result.goldGained}',
               ),
+              // 보석 (도전 모드 보상)
+              if (result.gemsGained > 0) ...[
+                const SizedBox(width: 24),
+                _RewardItem(
+                  icon: Icons.diamond,
+                  color: Colors.cyan,
+                  label: 'GEMS',
+                  value: '+${result.gemsGained}',
+                ),
+              ],
             ],
           ),
 

@@ -20,7 +20,7 @@ class MainLobbyScreen extends StatefulWidget {
   State<MainLobbyScreen> createState() => _MainLobbyScreenState();
 }
 
-class _MainLobbyScreenState extends State<MainLobbyScreen> {
+class _MainLobbyScreenState extends State<MainLobbyScreen> with WidgetsBindingObserver {
   // 도전 시스템 (임시 - 실제로는 게임 전체에서 공유)
   late ChallengeSystem mChallengeSystem;
   bool mIsLoading = true;
@@ -28,7 +28,22 @@ class _MainLobbyScreenState extends State<MainLobbyScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initializeProgress();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 앱이 다시 활성화될 때 UI 갱신
+    if (state == AppLifecycleState.resumed) {
+      _refreshData();
+    }
   }
 
   Future<void> _initializeProgress() async {
@@ -45,6 +60,14 @@ class _MainLobbyScreenState extends State<MainLobbyScreen> {
     setState(() {
       mIsLoading = false;
     });
+  }
+
+  /// 게임 종료 후 데이터 새로고침
+  void _refreshData() {
+    // ProgressSystem 데이터는 이미 저장되어 있으므로 UI만 갱신
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   @override
@@ -107,8 +130,8 @@ class _MainLobbyScreenState extends State<MainLobbyScreen> {
                               builder: (context) => const CharacterSelectScreen(),
                             ),
                           ).then((_) {
-                            // 게임에서 돌아오면 UI 갱신
-                            setState(() {});
+                            // 돌아오면 항상 데이터 새로고침
+                            _refreshData();
                           });
                         },
                         style: ElevatedButton.styleFrom(
@@ -147,13 +170,18 @@ class _MainLobbyScreenState extends State<MainLobbyScreen> {
                                         challengeId: challengeId,
                                       ),
                                     ),
-                                  );
+                                  ).then((_) {
+                                    // 게임에서 돌아오면 도전 화면도 닫기
+                                    if (context.mounted) {
+                                      Navigator.of(context).pop();
+                                    }
+                                  });
                                 },
                               ),
                             ),
                           ).then((_) {
-                            // 게임에서 돌아오면 UI 갱신
-                            setState(() {});
+                            // 돌아오면 항상 데이터 새로고침
+                            _refreshData();
                           });
                         },
                         icon: const Icon(Icons.emoji_events, color: Colors.amber),

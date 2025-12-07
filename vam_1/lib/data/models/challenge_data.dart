@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 /// 도전 모드 타입
 enum ChallengeType {
   endless,      // 무한 웨이브 - 최대한 오래 생존
-  bossRush,     // 보스 러시 - 연속 보스 처치
   timeAttack,   // 타임어택 - 제한 시간 내 처치 수
   survival,     // 서바이벌 - 강화된 적, 제한 시간 생존
 }
@@ -54,13 +53,11 @@ class ChallengeCondition {
   final int? targetTime;           // 목표 시간 (초) - 타임어택/서바이벌
   final int? targetKills;          // 목표 처치 수 - 타임어택
   final int? targetWave;           // 목표 웨이브 - 무한 웨이브
-  final int? targetBossKills;      // 보스 처치 수 - 보스 러시
 
   const ChallengeCondition({
     this.targetTime,
     this.targetKills,
     this.targetWave,
-    this.targetBossKills,
   });
 
   String GetDescription() {
@@ -70,8 +67,6 @@ class ChallengeCondition {
       return '${targetTime}초 생존';
     } else if (targetWave != null) {
       return '웨이브 $targetWave 도달';
-    } else if (targetBossKills != null) {
-      return '보스 ${targetBossKills}마리 처치';
     }
     return '클리어';
   }
@@ -197,52 +192,6 @@ class DefaultChallenges {
     ),
   );
 
-  // ========== 보스 러시 ==========
-
-  static const ChallengeData BOSS_RUSH_NORMAL = ChallengeData(
-    id: 'challenge_boss_rush_normal',
-    name: '보스 러시',
-    description: '연속으로 보스를 처치하세요!',
-    type: ChallengeType.bossRush,
-    difficulty: ChallengeDifficulty.normal,
-    unlockLevel: 3,
-    condition: ChallengeCondition(targetBossKills: 3),
-    rewards: [
-      ChallengeReward(type: ChallengeRewardType.gold, amount: 800),
-      ChallengeReward(
-        type: ChallengeRewardType.equipment,
-        itemId: 'equip_flame_blade',
-        amount: 1,
-      ),
-    ],
-    modifier: ChallengeModifier(
-      expMultiplier: 2.0,
-    ),
-  );
-
-  static const ChallengeData BOSS_RUSH_HARD = ChallengeData(
-    id: 'challenge_boss_rush_hard',
-    name: '보스 러시 II',
-    description: '더 많은 보스를 상대하세요!',
-    type: ChallengeType.bossRush,
-    difficulty: ChallengeDifficulty.hard,
-    unlockLevel: 8,
-    prerequisiteId: 'challenge_boss_rush_normal',
-    condition: ChallengeCondition(targetBossKills: 5),
-    rewards: [
-      ChallengeReward(type: ChallengeRewardType.gold, amount: 1500),
-      ChallengeReward(
-        type: ChallengeRewardType.equipment,
-        itemId: 'equip_thunder_staff',
-        amount: 1,
-      ),
-    ],
-    modifier: ChallengeModifier(
-      enemyHpMultiplier: 1.8,
-      expMultiplier: 2.5,
-    ),
-  );
-
   // ========== 타임어택 ==========
 
   static const ChallengeData TIME_ATTACK_NORMAL = ChallengeData(
@@ -338,8 +287,6 @@ class DefaultChallenges {
   static List<ChallengeData> get all => [
     ENDLESS_NORMAL,
     ENDLESS_HARD,
-    BOSS_RUSH_NORMAL,
-    BOSS_RUSH_HARD,
     TIME_ATTACK_NORMAL,
     TIME_ATTACK_HARD,
     SURVIVAL_NORMAL,
@@ -369,8 +316,6 @@ extension ChallengeTypeExtension on ChallengeType {
     switch (this) {
       case ChallengeType.endless:
         return '무한 웨이브';
-      case ChallengeType.bossRush:
-        return '보스 러시';
       case ChallengeType.timeAttack:
         return '타임어택';
       case ChallengeType.survival:
@@ -382,8 +327,6 @@ extension ChallengeTypeExtension on ChallengeType {
     switch (this) {
       case ChallengeType.endless:
         return Icons.all_inclusive;
-      case ChallengeType.bossRush:
-        return Icons.whatshot;
       case ChallengeType.timeAttack:
         return Icons.timer;
       case ChallengeType.survival:
@@ -395,8 +338,6 @@ extension ChallengeTypeExtension on ChallengeType {
     switch (this) {
       case ChallengeType.endless:
         return Colors.blue;
-      case ChallengeType.bossRush:
-        return Colors.red;
       case ChallengeType.timeAttack:
         return Colors.orange;
       case ChallengeType.survival:

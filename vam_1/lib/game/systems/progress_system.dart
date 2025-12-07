@@ -25,6 +25,9 @@ class ProgressSystem {
   // 마지막 게임 결과 (결과창 표시용)
   GameEndResult? mLastGameResult;
 
+  // 도전 보상 정보 (도전 모드 클리어 시 표시용)
+  ChallengeRewardResult? mLastChallengeReward;
+
   // Getters
   ProgressData get data => _data;
   bool get isLoaded => _isLoaded;
@@ -158,7 +161,19 @@ class ProgressSystem {
     _data = _data.copyWith(
       currency: _data.currency.AddGold(gold).AddGems(gems),
     );
+
+    // 마지막 게임 결과에 보상 정보 추가 (도전 모드 보상 표시용)
+    if (mLastGameResult != null) {
+      if (gold > 0) {
+        mLastGameResult = mLastGameResult!.WithGold(gold);
+      }
+      if (gems > 0) {
+        mLastGameResult = mLastGameResult!.WithGems(gems);
+      }
+    }
+
     await Save();
+    Logger.game('Currency added: gold=$gold, gems=$gems (total: gold=${_data.currency.gold}, gems=${_data.currency.gems})');
   }
 
   /// 재화 사용
@@ -535,6 +550,7 @@ class ProgressSystem {
 class GameEndResult {
   final int expGained;
   final int goldGained;
+  final int gemsGained;
   final int previousLevel;
   final int newLevel;
   final bool leveledUp;
@@ -544,11 +560,55 @@ class GameEndResult {
   const GameEndResult({
     required this.expGained,
     required this.goldGained,
+    this.gemsGained = 0,
     required this.previousLevel,
     required this.newLevel,
     required this.leveledUp,
     required this.currentExp,
     required this.requiredExp,
+  });
+
+  /// 보석 추가된 새 결과 반환
+  GameEndResult WithGems(int gems) {
+    return GameEndResult(
+      expGained: expGained,
+      goldGained: goldGained,
+      gemsGained: gemsGained + gems,
+      previousLevel: previousLevel,
+      newLevel: newLevel,
+      leveledUp: leveledUp,
+      currentExp: currentExp,
+      requiredExp: requiredExp,
+    );
+  }
+
+  /// 골드 추가된 새 결과 반환
+  GameEndResult WithGold(int gold) {
+    return GameEndResult(
+      expGained: expGained,
+      goldGained: goldGained + gold,
+      gemsGained: gemsGained,
+      previousLevel: previousLevel,
+      newLevel: newLevel,
+      leveledUp: leveledUp,
+      currentExp: currentExp,
+      requiredExp: requiredExp,
+    );
+  }
+}
+
+/// 도전 보상 결과 (도전 클리어 시 표시용)
+class ChallengeRewardResult {
+  final int gold;
+  final int gems;
+  final List<String> equipmentIds;
+  final bool isCleared;
+
+  const ChallengeRewardResult({
+    this.gold = 0,
+    this.gems = 0,
+    this.equipmentIds = const [],
+    this.isCleared = false,
   });
 }
 

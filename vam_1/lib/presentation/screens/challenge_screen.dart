@@ -85,9 +85,6 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
       case ChallengeType.endless:
         description = '끝없이 밀려오는 적들을 상대하세요. 최대한 많은 웨이브를 버텨보세요!';
         break;
-      case ChallengeType.bossRush:
-        description = '강력한 보스들이 연속으로 등장합니다. 모두 처치하세요!';
-        break;
       case ChallengeType.timeAttack:
         description = '제한된 시간 내에 최대한 많은 적을 처치하세요!';
         break;
@@ -266,9 +263,6 @@ class _ChallengeScreenState extends State<ChallengeScreen> with SingleTickerProv
     switch (challenge.type) {
       case ChallengeType.endless:
         bestText = '최고 웨이브: ${record.bestWave}';
-        break;
-      case ChallengeType.bossRush:
-        bestText = '최고 처치: ${record.bestKills}';
         break;
       case ChallengeType.timeAttack:
         bestText = '최고 처치: ${record.bestKills}';

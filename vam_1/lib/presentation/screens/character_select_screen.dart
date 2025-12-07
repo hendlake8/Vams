@@ -359,9 +359,9 @@ class _CharacterSelectScreenState extends State<CharacterSelectScreen> {
                       ),
                     ),
                   ).then((_) {
-                    // 게임에서 돌아오면 로비로 돌아가기
+                    // 게임에서 돌아오면 로비로 돌아가기 (결과값 true 전달)
                     if (mounted) {
-                      Navigator.of(context).pop();
+                      Navigator.of(context).pop(true);
                     }
                   });
                 },

@@ -15,6 +15,19 @@ class SpawnSystem {
   int mCurrentMonsterCount = 0;
   bool mIsSpawning = true;
 
+  // ========== 웨이브 기준 엘리트 스폰 ==========
+  int mLastEliteWave = 0;  // 마지막 엘리트 스폰 웨이브
+  static const int ELITE_WAVE_INTERVAL = 3;  // 3웨이브마다
+
+  // ========== 킬 기준 엘리트 스폰 (확률 시스템) ==========
+  int mLastKillCheck = 0;           // 마지막 확률 체크한 킬 수
+  double mEliteSpawnChance = 0.1;   // 현재 엘리트 스폰 확률 (10%)
+
+  // 킬 기준 설정값 (조절 가능)
+  static const int ELITE_KILL_INTERVAL = 10;        // 10킬마다 확률 체크
+  static const double ELITE_BASE_CHANCE = 0.1;      // 기본 확률 10%
+  static const double ELITE_CHANCE_INCREMENT = 0.1; // 실패 시 증가량 10%
+
   SpawnSystem(this.mGame);
 
   void Update(double dt) {
@@ -56,6 +69,53 @@ class SpawnSystem {
     mCurrentMonsterCount++;
 
     Logger.spawn('Monster spawned at ($spawnX, $spawnY). Total: $mCurrentMonsterCount');
+  }
+
+  /// 웨이브 기준 엘리트 스폰 체크 (웨이브 전환 시 호출)
+  void CheckEliteSpawnByWave() {
+    final waveCount = mGame.waveSystem.mWaveCount;
+
+    // 웨이브 기준: 3, 6, 9, ...
+    // 스폰 수: 웨이브 3 → 1마리, 웨이브 6 → 2마리, 웨이브 9 → 3마리
+    if (waveCount >= ELITE_WAVE_INTERVAL &&
+        waveCount % ELITE_WAVE_INTERVAL == 0 &&
+        waveCount > mLastEliteWave) {
+      final eliteCount = waveCount ~/ ELITE_WAVE_INTERVAL;  // 3→1, 6→2, 9→3
+      for (int i = 0; i < eliteCount; i++) {
+        SpawnElite();
+      }
+      mLastEliteWave = waveCount;
+      Logger.spawn('Elite spawned by wave $waveCount: $eliteCount elite(s)');
+    }
+  }
+
+  /// 킬 기준 엘리트 스폰 체크 (킬 시 호출)
+  void CheckEliteSpawnByKill() {
+    final killCount = mGame.mKillCount;
+
+    // 10킬마다 확률 체크
+    final killMilestone = (killCount ~/ ELITE_KILL_INTERVAL) * ELITE_KILL_INTERVAL;
+    if (killMilestone > 0 && killMilestone > mLastKillCheck) {
+      mLastKillCheck = killMilestone;
+
+      // 확률 판정
+      final roll = MathUtils.RandomRange(0.0, 1.0);
+      if (roll < mEliteSpawnChance) {
+        // 스폰 성공 → 확률 초기화
+        SpawnElite();
+        Logger.spawn('Elite spawned by kill! (chance: ${(mEliteSpawnChance * 100).toInt()}%, roll: ${(roll * 100).toInt()}%)');
+        mEliteSpawnChance = ELITE_BASE_CHANCE;
+      } else {
+        // 스폰 실패 → 확률 증가
+        mEliteSpawnChance += ELITE_CHANCE_INCREMENT;
+        Logger.spawn('Elite spawn failed. Next chance: ${(mEliteSpawnChance * 100).toInt()}%');
+      }
+    }
+  }
+
+  /// 엘리트 스폰 조건 체크 (킬 시 호출 - 하위 호환용)
+  void CheckEliteSpawn() {
+    CheckEliteSpawnByKill();
   }
 
   /// 엘리트 몬스터 스폰
@@ -136,5 +196,10 @@ class SpawnSystem {
     mSpawnTimer = 0;
     mSpawnInterval = GameConstants.DEFAULT_SPAWN_INTERVAL;
     mIsSpawning = true;
+    // 웨이브 기준 리셋
+    mLastEliteWave = 0;
+    // 킬 기준 리셋
+    mLastKillCheck = 0;
+    mEliteSpawnChance = ELITE_BASE_CHANCE;
   }
 }

@@ -24,6 +24,7 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   late VamGame _game;
+  bool _challengeStarted = false;
 
   @override
   void initState() {
@@ -35,20 +36,23 @@ class _GameScreenState extends State<GameScreen> {
     _game.onLevelUp = _showSkillSelectOverlay;
     _game.onGameOver = _showGameOverOverlay;
     _game.onVictory = _showVictoryOverlay;
+    _game.onGameLoaded = _startChallengeIfNeeded;
+  }
 
-    // 도전 모드 시작
-    if (widget.challengeId != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        final success = _game.challengeSystem.StartChallenge(widget.challengeId!);
-        if (!success) {
-          debugPrint('WARNING: Failed to start challenge: ${widget.challengeId}');
-          debugPrint('  - isInChallengeMode: ${_game.challengeSystem.isInChallengeMode}');
-          debugPrint('  - currentChallenge: ${_game.challengeSystem.currentChallenge?.name}');
-        } else {
-          debugPrint('Challenge started successfully: ${widget.challengeId}');
-          debugPrint('  - isInChallengeMode: ${_game.challengeSystem.isInChallengeMode}');
-        }
-      });
+  /// 게임 로드 완료 후 도전 모드 시작
+  void _startChallengeIfNeeded() {
+    if (_challengeStarted || widget.challengeId == null) return;
+    if (!_game.isLoaded) return;  // 게임이 아직 로드되지 않음
+
+    _challengeStarted = true;
+    final success = _game.challengeSystem.StartChallenge(widget.challengeId!);
+    if (!success) {
+      debugPrint('WARNING: Failed to start challenge: ${widget.challengeId}');
+      debugPrint('  - isInChallengeMode: ${_game.challengeSystem.isInChallengeMode}');
+      debugPrint('  - currentChallenge: ${_game.challengeSystem.currentChallenge?.name}');
+    } else {
+      debugPrint('Challenge started successfully: ${widget.challengeId}');
+      debugPrint('  - isInChallengeMode: ${_game.challengeSystem.isInChallengeMode}');
     }
   }
 
